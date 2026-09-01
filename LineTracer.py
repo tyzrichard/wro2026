@@ -27,43 +27,6 @@ class PDController:
         self.timer = StopWatch()
         self.timer.reset()
     
-    def o_calculate(self, threshold_value, current_value):
-        """
-        Calculate PD controller output
-        
-        Args:
-            threshold_value (float): Desired value (threshold/target)
-            current_value (float): Current measured value
-            
-        Returns:
-            float: Controller output
-        """
-        if self.filtered_value is None:
-            self.filtered_value = current_value
-        else:
-            self.filtered_value = (self.filter_alpha * current_value +
-                                    (1 - self.filter_alpha) * self.filtered_value)
-
-        current_time = self.timer.time()
-        error = threshold_value - current_value
-        p_term = self.kp * error
-        
-        # Derivative term
-        if current_time > 0:
-            dt = current_time / 1000.0  # Convert ms to seconds
-            d_term = self.kd * (error - self.previous_error) / dt
-        else:
-            d_term = 0
-        
-        # PD output
-        output = p_term + d_term
-        
-        # Update for next iteration
-        self.previous_error = error
-        self.timer.reset()
-        
-        return output
-    
     def calculate(self, threshold_value, current_value):
         if self.filtered_value is None:
             self.filtered_value = current_value

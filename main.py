@@ -17,25 +17,47 @@ ev3 = EV3Brick()
 motorA = Motor(Port.A)
 motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.C)
+leftColor = Ev3devSensor(Port.S1)
+middleColor = Ev3devSensor(Port.S2)
+rightColor = Ev3devSensor(Port.S3)
 robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 print(ev3.battery.voltage())
 
 acc = acceleration.AccelerationController(Kp=0.8)
 
 if ev3.battery.voltage() >= 7000:
-    # slider weewoo
-    misc.reset_slider()
-    motorC.run_target(-500, -1000) # (speed, angle)
+    # # slider weewoo
+    # misc.reset_slider()
+    # motorC.run_target(-500, -1000) # (speed, angle)
 
+    # # Phase 1: Move Bucket and Scan Mosaic
+    # acc.line_following(890)
+    # acc.turn_degrees(90, mode="spot")
+    # acc.turn_degrees(-90, mode="spot")
+    # acc.line_following(740)
+    # acc.turn_degrees(-90, mode="spot")
+    # acc.line_following(460)
+    # acc.turn_degrees(-90, mode="spot")
+    # acc.line_following_blackvar()
+    # sensor_log = acc.move_colour_scan(600, default_max_speed=200)
+    # for i in sensor_log: print(i)
 
-    # Phase 1: Move Bucket and Scan Mosaic
-    acc.line_following(890)
-    acc.turn_degrees(90, mode="spot")
+    # Season Quest. We start from the yellow box facing towards it.
+    acc.turn_degrees(180, mode="spot")
+    acc.line_following(280)
     acc.turn_degrees(-90, mode="spot")
-    acc.line_following(740)
-    acc.turn_degrees(-90, mode="spot")
-    acc.line_following(460)
-    acc.turn_degrees(-90, mode="spot")
+    acc.line_following(350)
+    acc.turn_degrees(-90, mode="arc", turn_radius=200)
+    acc.line_following(1000, sensor=middleColor)
+    acc.turn_degrees(180, mode="arc", turn_radius=200)
     acc.line_following_blackvar()
-    sensor_log = acc.move_colour_scan(600, default_max_speed=200)
-    for i in sensor_log: print(i)
+    acc.move_colour_scan(600)
+    acc.line_following_blackvar()
+    acc.turn_degrees(-90, mode="spot")
+    acc.line_following(350)
+    acc.turn_degrees(90, mode="spot")
+    acc.line_following_blackvar()
+
+
+
+

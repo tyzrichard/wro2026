@@ -4,11 +4,10 @@ from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor
 from pybricks.parameters import Port, Stop, Direction, Button
 from pybricks.tools import wait, StopWatch
-from pybricks.robotics import DriveBase
 from pybricks.iodevices import Ev3devSensor
+from LineTracer import PDController
 import math
 
-from PDlinetracing import PDController
 ev3 = EV3Brick()
 motorA = Motor(Port.A)
 motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
@@ -90,6 +89,42 @@ class AccelerationController:
 
             error = angle_to_dist(motorA.angle()) - angle_to_dist(motorB.angle())
             correction = error * self.Kp
+
+            motorA.run(ideal_speed - correction)
+            motorB.run(ideal_speed + correction)
+            wait(10)
+
+        motorA.stop()
+        motorB.stop()
+
+    def line_following(self, target_distance, default_min_speed = 50, default_max_speed=1200, default_ramp_dist=200, target_light=182, sensor=None, kp=0.2, kd=0.02):
+        """
+            Very similar to forward movement code, but it does so by following a line.
+            The only difference is where it calculates error and subsequent correction from.
+        """
+        ramp_dist, cruise_dist, max_speed = self.dist_planning(target_distance, default_max_speed, default_ramp_dist)
+        motorA.reset_angle(0)
+        motorB.reset_angle(0)
+        avg_dist, ideal_speed = 0, 0
+
+        if sensor is None:
+            sensor = Ev3devSensor(Port.S1)
+        color_sensor = sensor # Pass in Ev3devSensor object
+        pd_controller = PDController(kp=kp, kd=kd)
+
+        while avg_dist < target_distance:
+            avg_dist = (angle_to_dist(motorA.angle()) + angle_to_dist(motorB.angle())) / 2
+            phase, progress = self.get_phase(avg_dist, ramp_dist, cruise_dist, target_distance)
+
+            # PD Integration Code
+            current_light = color_sensor.read('RGB')[-1]
+            correction = pd_controller.calculate(target_light, current_light)
+            
+            if phase == "CRUISE":
+                ideal_speed = max_speed
+            else: # RAMP_UP or RAMP_DOWN
+                ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
+
 
             motorA.run(ideal_speed - correction)
             motorB.run(ideal_speed + correction)

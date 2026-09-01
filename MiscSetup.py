@@ -1,7 +1,7 @@
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor
 from pybricks.iodevices import Ev3devSensor
-from pybricks.parameters import Port, Stop, Button
+from pybricks.parameters import Port, Stop, Button, Direction
 from pybricks.tools import wait, StopWatch, DataLog
 
 ev3 = EV3Brick()
@@ -67,3 +67,10 @@ def calibrate_sensor():
     ev3.screen.print("Suggested:", target_value)
     wait(3000)
 
+def dancing():
+    # why is this a thing.
+    acc.move_distance(200)
+    acc.turn_degrees(-45, default_max_speed=500)
+    acc.turn_degrees(90, default_max_speed=1000)
+    acc.turn_degrees(-45, default_max_speed=500)
+    acc.turn_degrees(360, default_max_speed=1000)

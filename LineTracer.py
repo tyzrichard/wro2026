@@ -10,7 +10,7 @@ from pybricks.iodevices import Ev3devSensor
 ev3 = EV3Brick()
 
 class PDController:
-    def __init__(self, kp=0.1, kd=0.0, filter_alpha=0.2):
+    def __init__(self, kp=0.0, kd=0.0, filter_alpha=0.9):
         """
         PD Controller implementation
         
@@ -22,11 +22,12 @@ class PDController:
         self.kd = kd
         self.previous_error = 0
         self.filtered_value = None
+        self.previous_filtered_error = 0
         self.filter_alpha = filter_alpha  # 0 = no filtering, 1 = fully smoothed
         self.timer = StopWatch()
         self.timer.reset()
     
-    def calculate(self, threshold_value, current_value):
+    def o_calculate(self, threshold_value, current_value):
         """
         Calculate PD controller output
         
@@ -61,4 +62,30 @@ class PDController:
         self.previous_error = error
         self.timer.reset()
         
+        return output
+    
+    def calculate(self, threshold_value, current_value):
+        if self.filtered_value is None:
+            self.filtered_value = current_value
+        else:
+            self.filtered_value = (self.filter_alpha * current_value + (1 - self.filter_alpha) * self.filtered_value)
+
+        current_time = self.timer.time()
+        error = threshold_value - current_value              # P term: raw, no lag
+        filtered_error = threshold_value - self.filtered_value  # D term: filtered, smoothed
+
+        p_term = self.kp * error
+
+        if current_time > 0:
+            dt = current_time / 1000.0
+            d_term = self.kd * (filtered_error - self.previous_filtered_error) / dt
+        else:
+            d_term = 0
+
+        output = p_term + d_term
+
+        self.previous_error = error
+        self.previous_filtered_error = filtered_error   # separate tracking var needed
+        self.timer.reset()
+
         return output

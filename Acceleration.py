@@ -5,22 +5,33 @@ from pybricks.ev3devices import Motor
 from pybricks.parameters import Port, Stop, Direction, Button
 from pybricks.tools import wait, StopWatch
 from pybricks.iodevices import Ev3devSensor
+from pybricks.robotics import DriveBase
 from LineTracer import PDController
 import math
 
 ev3 = EV3Brick()
 motorA = Motor(Port.A)
 motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
+leftColor = Ev3devSensor(Port.S1)
+middleColor = Ev3devSensor(Port.S2)
+rightColor = Ev3devSensor(Port.S3)
+robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 
 wheel_rad = 31.2  
 w2w_length = 192  # short for wheel to wheel length. im not writing allat
 min_rad = 200   # arc radius for full steer (tune), usually more than half of wheel_to_wheel_length
+beep_time = 50
 
 def dist_to_angle(dist):
     return (dist / (math.pi * wheel_rad * 2)) * 360
 
 def angle_to_dist(angle):
     return (angle / 360) * (math.pi * wheel_rad * 2)
+
+def checkColor(r, g, b, color, buffer=40):
+    if abs(color[0] - r) < buffer and abs(color[1] - g) < buffer and abs(color[2] - b) < buffer:
+        return True
+    return False
 
 class AccelerationController:
     def __init__(self, Kp=0.5):
@@ -96,15 +107,68 @@ class AccelerationController:
 
         motorA.stop()
         motorB.stop()
+        ev3.speaker.beep()
+        wait(beep_time)
 
-    def line_following(self, target_distance, default_min_speed = 50, default_max_speed=1200, default_ramp_dist=200, target_light=182, sensor=None, kp=0.2, kd=0.02):
+    def move_colour_scan(self, target_distance, last_sensor_dist=200, scan_interval_dist=50, default_min_speed=50, default_max_speed=200, default_ramp_dist=100):
+        """
+            Forward moving code with extra bits added to log colours starting from the mosaic's black border and every scan_interval_dist afterwards.
+        """
+        ramp_dist, cruise_dist, max_speed = self.dist_planning(target_distance, default_max_speed, default_ramp_dist)
+        motorA.reset_angle(0)
+        motorB.reset_angle(0)
+        avg_dist, ideal_speed = 0, 0
+        last_sensor_dist -= scan_interval_dist
+
+        sensor_log = []
+
+        while avg_dist < target_distance:
+            avg_dist = (angle_to_dist(motorA.angle()) + angle_to_dist(motorB.angle())) / 2
+            phase, progress = self.get_phase(avg_dist, ramp_dist, cruise_dist, target_distance)
+            
+            if phase == "CRUISE":
+                ideal_speed = max_speed
+            else: 
+                ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
+
+            error = angle_to_dist(motorA.angle()) - angle_to_dist(motorB.angle())
+            correction = error * self.Kp
+
+            motorA.run(ideal_speed - correction)
+            motorB.run(ideal_speed + correction)
+
+            if  avg_dist - last_sensor_dist >= scan_interval_dist and len(sensor_log) < 4:
+                sensor_line = []
+                colorReads = [leftColor.read('RGB'), middleColor.read('RGB'), rightColor.read('RGB')]
+                for color in colorReads:
+                    if checkColor(235, 235, 235, color):
+                        sensor_line.append("White")
+                    elif checkColor(235, 230, 65, color):
+                        sensor_line.append("Yellow")
+                    elif checkColor(30, 65, 130, color):
+                        sensor_line.append("Blue")
+                    elif checkColor(48, 75, 55, color):
+                        sensor_line.append("Green")
+                    else:
+                        sensor_line.append("NA" + str(color))
+                    # sensor_line.append(color) # for calibration testing
+                sensor_log.append(sensor_line)
+                last_sensor_dist = avg_dist
+            wait(10)
+
+        motorA.stop()
+        motorB.stop()
+        ev3.speaker.beep()
+        wait(beep_time)
+        return sensor_log
+
+    def line_following(self, target_distance, default_min_speed = 50, default_max_speed=800, default_ramp_dist=200, target_light=182, sensor=None, kp=0.05, kd=0.005):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.
         """
         ramp_dist, cruise_dist, max_speed = self.dist_planning(target_distance, default_max_speed, default_ramp_dist)
-        motorA.reset_angle(0)
-        motorB.reset_angle(0)
+        robot.reset() 
         avg_dist, ideal_speed = 0, 0
 
         if sensor is None:
@@ -113,25 +177,28 @@ class AccelerationController:
         pd_controller = PDController(kp=kp, kd=kd)
 
         while avg_dist < target_distance:
-            avg_dist = (angle_to_dist(motorA.angle()) + angle_to_dist(motorB.angle())) / 2
+            avg_dist = robot.distance()
             phase, progress = self.get_phase(avg_dist, ramp_dist, cruise_dist, target_distance)
 
             # PD Integration Code
             current_light = color_sensor.read('RGB')[-1]
-            correction = pd_controller.calculate(target_light, current_light)
+            turn_rate = pd_controller.calculate(target_light, current_light)
             
             if phase == "CRUISE":
                 ideal_speed = max_speed
             else: # RAMP_UP or RAMP_DOWN
                 ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
 
+            # Clamp turn_rate so it can't overwhelm ideal_speed at low speeds
+            max_turn_rate = ideal_speed * 0.8   # tune this multiplier
+            turn_rate = max(-max_turn_rate, min(max_turn_rate, turn_rate))
 
-            motorA.run(ideal_speed - correction)
-            motorB.run(ideal_speed + correction)
+            robot.drive(ideal_speed, turn_rate)
             wait(10)
 
-        motorA.stop()
-        motorB.stop()
+        robot.stop()
+        ev3.speaker.beep()
+        wait(beep_time)
 
     def turn_degrees(self, turn_angle, mode="spot", default_min_speed = 30, default_max_speed=500, default_ramp_dist=100):
         """
@@ -209,3 +276,5 @@ class AccelerationController:
                 wait(10)
             motorA.stop()
             motorB.stop()
+        ev3.speaker.beep()
+        wait(beep_time)

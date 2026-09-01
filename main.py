@@ -7,6 +7,7 @@ from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 import Acceleration as acceleration
 import MiscSetup as misc
+import SlapSorter as slap
 
 # This program requires LEGO EV3 MicroPython v2.0 or higher.
 # Click "Open user guide" on the EV3 extension tab for more information.
@@ -35,5 +36,6 @@ if ev3.battery.voltage() >= 7000:
     acc.turn_degrees(-90, mode="spot")
     acc.line_following(460)
     acc.turn_degrees(-90, mode="spot")
+    acc.line_following_blackvar()
     sensor_log = acc.move_colour_scan(600, default_max_speed=200)
     for i in sensor_log: print(i)

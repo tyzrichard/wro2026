@@ -200,6 +200,43 @@ class AccelerationController:
         ev3.speaker.beep()
         wait(beep_time)
 
+    def line_following_blackvar(self, min_speed = 50, max_speed=200, ramp_dist=100, target_light=182, sensor=None, kp=0.05, kd=0.005):
+            """
+                Very similar to forward movement code, but it does so by following a line.
+                The only difference is where it calculates error and subsequent correction from.
+            """
+            robot.reset() 
+            avg_dist, ideal_speed = 0, 0
+    
+            if sensor is None:
+                sensor = Ev3devSensor(Port.S2)
+            color_sensor = sensor # Pass in Ev3devSensor object
+            pd_controller = PDController(kp=kp, kd=kd)
+    
+            while not(checkColor(0, 0, 0, leftColor.read('RGB')) and checkColor(0, 0, 0, middleColor.read('RGB')) and checkColor(0, 0, 0, rightColor.read('RGB'))):
+                avg_dist = robot.distance()
+    
+                # PD Integration Code
+                current_light = color_sensor.read('RGB')[-1]
+                turn_rate = pd_controller.calculate(target_light, current_light)
+                
+                if avg_dist >= ramp_dist:
+                    ideal_speed = max_speed
+                else: # RAMP_UP. I just threw the sigmoid code here.
+                    x = progress * 5 - 2.5
+                    sigmoid = 1 / (1 + math.exp(-x))
+                    ideal_speed = (max_speed - min_speed) * sigmoid + min_speed
+    
+                max_turn_rate = ideal_speed * 0.8   # tune this multiplier
+                turn_rate = max(-max_turn_rate, min(max_turn_rate, turn_rate))
+    
+                robot.drive(ideal_speed, turn_rate)
+                wait(10)
+    
+            robot.stop()
+            ev3.speaker.beep()
+            wait(beep_time)
+
     def turn_degrees(self, turn_angle, mode="spot", turn_radius=min_rad, default_min_speed = 30, default_max_speed=500, default_ramp_dist=100):
         """
             Makes the robot perform spot (tank) steering and arc steering.

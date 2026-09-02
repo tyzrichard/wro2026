@@ -99,11 +99,12 @@ class AccelerationController:
                 ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
 
             error = angle_to_dist(motorA.angle()) - angle_to_dist(motorB.angle())
-            correction = abs(error) * error * self.Kp / 100
+            print(error)
+            correction = abs(error) * error * self.Kp 
 
             motorA.run(ideal_speed - correction)
             motorB.run(ideal_speed + correction)
-            wait(10)
+            wait(5)
 
         motorA.stop()
         motorB.stop()

@@ -23,7 +23,7 @@ rightColor = Ev3devSensor(Port.S3)
 robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 print(ev3.battery.voltage())
 
-acc = acceleration.AccelerationController(Kp=0.2)
+acc = acceleration.AccelerationController(Kp=0.9)
 
 if ev3.battery.voltage() >= 7000:
     # misc.calibrate_sensor()
@@ -32,10 +32,10 @@ if ev3.battery.voltage() >= 7000:
     # motorC.run_target(-500, -1000) # (speed, angle)
 
     # # Phase 1: Move Bucket and Scan Mosaic
-    acc.move_distance(1000)
+    # acc.move_distance(1000)
     # while True:
     #     print(leftColor.read('RGB')[-1])
-    # acc.turn_degrees(90, mode="spot")
+    # acc.turn_degrees(-180, mode="arc")
     # acc.turn_degrees(-90, mode="spot")
     # acc.line_following(740)
     # acc.turn_degrees(-90, mode="spot")

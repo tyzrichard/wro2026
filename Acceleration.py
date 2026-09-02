@@ -201,7 +201,53 @@ class AccelerationController:
         ev3.speaker.beep()
         wait(beep_time)
 
-    def line_following_blackvar(self, min_speed=50, max_speed=200, ramp_dist=100, target_light=162, sensor=None, kp=0.07, kd=0.007):
+    def blackstop(self, creep_speed=50, target_light=160, buffer=20, filter_alpha=0.55):
+        """
+            Moves the vehicle slowly towards a black line and stops. 
+            Left and right sensors are used to reposition the wheels.
+        """
+        motorA.reset_angle(0)
+        motorB.reset_angle(0)
+        creep_angle = dist_to_angle(creep_speed)
+
+        filtered_left = None
+        filtered_right = None
+
+        left_light = leftColor.read('RGB')[-1]
+        right_light = rightColor.read('RGB')[-1]
+
+        while abs(left_light - target_light) > buffer or abs(right_light - target_light) > buffer:
+            raw_left = leftColor.read('RGB')[-1]
+            raw_right = rightColor.read('RGB')[-1]
+
+            if filtered_left is None:
+                filtered_left = raw_left
+                filtered_right = raw_right
+            else:
+                filtered_left = filter_alpha * raw_left + (1 - filter_alpha) * filtered_left
+                filtered_right = filter_alpha * raw_right + (1 - filter_alpha) * filtered_right
+
+            left_light = filtered_left
+            right_light = filtered_right
+
+            if left_light > target_light:
+                motorB.run(creep_angle)
+            elif (target_light - left_light) >= buffer:
+                motorB.run(-0.2 * creep_angle)
+            else:
+                motorB.stop()
+
+            if right_light > target_light:
+                motorA.run(creep_angle)
+            elif (target_light - right_light) >= buffer:
+                motorA.run(-0.2 * creep_angle)
+            else:
+                motorA.stop()
+            wait(5)
+
+        print(str(leftColor.read('RGB')[-1]) + "   " + str(middleColor.read('RGB')[-1]) + "  " + str(rightColor.read('RGB')[-1]))
+
+    def line_following_blackvar(self, min_speed=50, max_speed=100, ramp_dist=100, target_light=162, sensor=None, kp=0.07, kd=0.007):
             """
                 Very similar to forward movement code, but it does so by following a line.
                 The only difference is where it calculates error and subsequent correction from.
@@ -214,7 +260,7 @@ class AccelerationController:
             color_sensor = sensor # Pass in Ev3devSensor object
             pd_controller = PDController(kp=kp, kd=kd)
     
-            while not(checkColor(0, 0, 0, leftColor.read('RGB')) and checkColor(0, 0, 0, middleColor.read('RGB')) and checkColor(0, 0, 0, rightColor.read('RGB'))):
+            while not(checkColor(0, 0, 0, leftColor.read('RGB')) or checkColor(0, 0, 0, rightColor.read('RGB'))):
                 avg_dist = robot.distance()
     
                 # PD Integration Code
@@ -224,6 +270,7 @@ class AccelerationController:
                 if avg_dist >= ramp_dist:
                     ideal_speed = max_speed
                 else: # RAMP_UP. I just threw the sigmoid code here.
+                    progress = avg_dist / ramp_dist
                     x = progress * 5 - 2.5
                     sigmoid = 1 / (1 + math.exp(-x))
                     ideal_speed = (max_speed - min_speed) * sigmoid + min_speed
@@ -232,9 +279,9 @@ class AccelerationController:
                 turn_rate = max(-max_turn_rate, min(max_turn_rate, turn_rate))
     
                 robot.drive(ideal_speed, turn_rate)
-                wait(10)
-    
+                wait(5)
             robot.stop()
+            self.blackstop()
             ev3.speaker.beep()
             wait(beep_time)
 

@@ -67,6 +67,20 @@ def calibrate_sensor():
     ev3.screen.print("Suggested:", target_value)
     wait(3000)
 
+def calibrate_colours():
+    left_sensor = Ev3devSensor(Port.S1)
+    middle_sensor = Ev3devSensor(Port.S2)
+    right_sensor = Ev3devSensor(Port.S3)
+    
+    ev3.screen.clear()
+    
+    while True:
+        ev3.screen.clear()
+        ev3.screen.print(left_sensor.read('RGB'))
+        ev3.screen.print(middle_sensor.read('RGB'))
+        ev3.screen.print(right_sensor.read('RGB'))
+        wait(100)
+
 def dancing():
     # why is this a thing.
     acc.move_distance(200)

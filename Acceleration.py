@@ -76,7 +76,7 @@ class AccelerationController:
         sigmoid = 1 / (1 + math.exp(-x))
         return (max_speed - min_speed) * sigmoid + min_speed
 
-    def move_distance(self, target_distance, default_min_speed = 50, default_max_speed=1200, default_ramp_dist=200):
+    def move_distance(self, target_distance, default_min_speed = 50, default_max_speed=2000, default_ramp_dist=200):
         """
             Moves the robot forwards with smooth acceleration and motor synchronisation.
             1. Calculates distances for all three phases
@@ -99,7 +99,7 @@ class AccelerationController:
                 ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
 
             error = angle_to_dist(motorA.angle()) - angle_to_dist(motorB.angle())
-            correction = error * self.Kp
+            correction = abs(error) * error * self.Kp / 100
 
             motorA.run(ideal_speed - correction)
             motorB.run(ideal_speed + correction)
@@ -132,7 +132,7 @@ class AccelerationController:
                 ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
 
             error = angle_to_dist(motorA.angle()) - angle_to_dist(motorB.angle())
-            correction = error * self.Kp
+            correction = abs(error) * error * self.Kp / 100
 
             motorA.run(ideal_speed - correction)
             motorB.run(ideal_speed + correction)
@@ -141,13 +141,13 @@ class AccelerationController:
                 sensor_line = []
                 colorReads = [leftColor.read('RGB'), middleColor.read('RGB'), rightColor.read('RGB')]
                 for color in colorReads:
-                    if checkColor(235, 235, 235, color):
+                    if checkColor(115, 116, 120, color):
                         sensor_line.append("White")
-                    elif checkColor(235, 230, 65, color):
+                    elif checkColor(110, 93, 35, color):
                         sensor_line.append("Yellow")
-                    elif checkColor(30, 65, 130, color):
+                    elif checkColor(15, 30, 65, color):
                         sensor_line.append("Blue")
-                    elif checkColor(48, 75, 55, color):
+                    elif checkColor(25, 38, 30, color):
                         sensor_line.append("Green")
                     else:
                         sensor_line.append("NA" + str(color))
@@ -162,7 +162,7 @@ class AccelerationController:
         wait(beep_time)
         return sensor_log
 
-    def line_following(self, target_distance, default_min_speed = 50, default_max_speed=800, default_ramp_dist=200, target_light=182, sensor=None, kp=0.05, kd=0.005):
+    def line_following(self, target_distance, default_min_speed=50, default_max_speed=600, default_ramp_dist=200, target_light=162, sensor=None, kp=0.07, kd=0.0007):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.
@@ -182,7 +182,7 @@ class AccelerationController:
 
             # PD Integration Code
             current_light = color_sensor.read('RGB')[-1]
-            turn_rate = pd_controller.calculate(target_light, current_light)
+            turn_rate = pd_controller.calculate(target_light, current_light) 
             
             if phase == "CRUISE":
                 ideal_speed = max_speed
@@ -190,17 +190,17 @@ class AccelerationController:
                 ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
 
             # Clamp turn_rate so it can't overwhelm ideal_speed at low speeds
-            max_turn_rate = ideal_speed * 0.8   # tune this multiplier
+            max_turn_rate = ideal_speed * 0.8  # tune this multiplier
             turn_rate = max(-max_turn_rate, min(max_turn_rate, turn_rate))
 
             robot.drive(ideal_speed, turn_rate)
-            wait(10)
+            wait(5)
 
         robot.stop()
         ev3.speaker.beep()
         wait(beep_time)
 
-    def line_following_blackvar(self, min_speed = 50, max_speed=200, ramp_dist=100, target_light=182, sensor=None, kp=0.05, kd=0.005):
+    def line_following_blackvar(self, min_speed=50, max_speed=200, ramp_dist=100, target_light=162, sensor=None, kp=0.07, kd=0.007):
             """
                 Very similar to forward movement code, but it does so by following a line.
                 The only difference is where it calculates error and subsequent correction from.
@@ -263,7 +263,7 @@ class AccelerationController:
                     ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
     
                 error = abs(angle_to_dist(motorA.angle())) - abs(angle_to_dist(motorB.angle()))
-                correction = error * self.Kp
+                correction = abs(error) * error * self.Kp / 100
     
                 motorA.run(-orientation*(ideal_speed - correction))
                 motorB.run(orientation*(ideal_speed + correction))
@@ -306,7 +306,7 @@ class AccelerationController:
                 inner_dist_travelled = angle_to_dist(inner_motor.angle())
                 expected_inner_dist = outer_dist_travelled * ratio
                 error = inner_dist_travelled - expected_inner_dist
-                correction = self.Kp * error
+                correction = error * abs(error) * self.Kp / 100
 
                 outer_motor.run(outer_speed)
                 inner_motor.run(inner_speed + correction)

@@ -37,7 +37,7 @@ class PDController:
         error = threshold_value - current_value              # P term: raw, no lag
         filtered_error = threshold_value - self.filtered_value  # D term: filtered, smoothed
 
-        p_term = self.kp * error
+        p_term = self.kp * error * abs(error) / 100
 
         if current_time > 0:
             dt = current_time / 1000.0

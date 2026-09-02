@@ -23,15 +23,18 @@ rightColor = Ev3devSensor(Port.S3)
 robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 print(ev3.battery.voltage())
 
-acc = acceleration.AccelerationController(Kp=0.8)
+acc = acceleration.AccelerationController(Kp=0.2)
 
 if ev3.battery.voltage() >= 7000:
+    # misc.calibrate_sensor()
     # # slider weewoo
     # misc.reset_slider()
     # motorC.run_target(-500, -1000) # (speed, angle)
 
     # # Phase 1: Move Bucket and Scan Mosaic
-    # acc.line_following(890)
+    acc.move_distance(1000)
+    # while True:
+    #     print(leftColor.read('RGB')[-1])
     # acc.turn_degrees(90, mode="spot")
     # acc.turn_degrees(-90, mode="spot")
     # acc.line_following(740)
@@ -43,20 +46,20 @@ if ev3.battery.voltage() >= 7000:
     # for i in sensor_log: print(i)
 
     # Season Quest. We start from the yellow box facing towards it.
-    acc.turn_degrees(180, mode="spot")
-    acc.line_following(280)
-    acc.turn_degrees(-90, mode="spot")
-    acc.line_following(350)
-    acc.turn_degrees(-90, mode="arc", turn_radius=200)
-    acc.line_following(1000, sensor=middleColor)
-    acc.turn_degrees(180, mode="arc", turn_radius=200)
-    acc.line_following_blackvar()
-    acc.move_colour_scan(600)
-    acc.line_following_blackvar()
-    acc.turn_degrees(-90, mode="spot")
-    acc.line_following(350)
-    acc.turn_degrees(90, mode="spot")
-    acc.line_following_blackvar()
+    # acc.turn_degrees(180, mode="spot")
+    # acc.line_following(280)
+    # acc.turn_degrees(-90, mode="spot")
+    # acc.line_following(350)
+    # acc.turn_degrees(-90, mode="arc", turn_radius=200)
+    # acc.line_following(1000, sensor=middleColor)
+    # acc.turn_degrees(180, mode="arc", turn_radius=200)
+    # acc.line_following_blackvar()
+    # acc.move_colour_scan(600)
+    # acc.line_following_blackvar()
+    # acc.turn_degrees(-90, mode="spot")
+    # acc.line_following(350)
+    # acc.turn_degrees(90, mode="spot")
+    # acc.line_following_blackvar()
 
 
 

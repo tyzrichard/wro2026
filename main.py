@@ -138,3 +138,57 @@ if ev3.battery.voltage() >= 7000:
     # # *code*
     # # sorting algorithm
     # # *code*
+    # # ending position facing mosaic
+    # acc.line_following(350)
+    # acc.line_following_blackvar()
+    # acc.move_distance(160) # sensors at black mosaic start
+    # #insert deposit code (motor C release, move forward 50mm~, motor C close, release, repeat)
+    # # *code*
+    # acc.move_distance(180) # to meet line after green deposit
+    # acc.line_following(650)
+    # acc.line_following_blackvar()
+    # acc.move_distance(-20)
+    # slap.slap_slapper() # green cement secured
+    # acc.move_distance(-300)
+    # acc.turn_degrees(180, mode="spot")
+    # acc.line_following(360)
+    # acc.line_following_blackvar()
+    # slap.raise_slapper() # green cement released
+    # acc.move_distance(-50)
+    # acc.turn_degrees(180, mode="spot")
+
+    # # double arc to go from green deposit to yellow cement (help values)
+    # acc.turn_degrees(-90, mode="arc", turn_radius=250, default_max_speed=700)
+    # acc.turn_degrees(90, mode="arc", turn_radius=270, default_max_speed=700)
+
+    # acc.line_following(120)
+    # acc.line_following_blackvar()
+    # slap.slap_slapper() # yellow cement secured
+    # acc.move_distance(-100)
+    # acc.turn_degrees(180, mode="spot")
+    # acc.turn_degrees(-90, mode="arc", turn_radius=250, default_max_speed=700)
+    # acc.line_following(270)
+    # acc.turn_degrees(90, mode="arc", turn_radius=270, default_max_speed=700)
+    # acc.line_following(280) # right sensor
+    # acc.turn_degrees(90, mode="arc", turn_radius=270, default_max_speed=700) # mini arc into yellow deposit
+    # acc.line_following_blackvar()
+    # slap.raise_slapper() # yellow cement released
+    # acc.move_distance(-70)
+    # acc.turn_degrees(180, mode="spot")
+    # acc.turn_degrees(-90, mode="arc", turn_radius=250, default_max_speed=700) # mini arc to main line
+    # acc.line_following(160) # left sensor (until middle sensor sees black?) 
+    # acc.turn_degrees(90, mode="spot")
+    # acc.line_following(60)
+    # acc.line_following_blackvar()
+    # slap.slap_slapper() # shovel secured
+    # acc.turn_degrees(90, mode="arc", turn_radius=250, default_max_speed=700) # mini arc to face flattener
+    # acc.move_distance(465) # push flattener to sponsor zone
+    # acc.move_distance(-100)
+
+    # # double arc to get back on main line (help values)
+    # acc.turn_degrees(90, mode="arc", turn_radius=250, default_max_speed=700)
+    # acc.turn_degrees(-90, mode="arc", turn_radius=270, default_max_speed=700)
+
+    # acc.line_following(500) # idk which sensor to use so wont hit barrier or flattener
+    # acc.turn_degrees(-45, mode="arc", turn_radius=270, default_max_speed=700) # put shovel into start zone
+    

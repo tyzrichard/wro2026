@@ -313,7 +313,7 @@ class AccelerationController:
         ev3.speaker.beep()
         wait(beep_time)
 
-    def turn_degrees(self, turn_angle, mode="spot", turn_radius=min_rad, default_min_speed = 30, default_max_speed=500, default_ramp_dist=100):
+    def turn_degrees(self, turn_angle, mode="spot", turn_radius=min_rad, default_min_speed = 30, default_max_speed=700, default_ramp_dist=100):
         """
             Makes the robot perform spot (tank) steering and arc steering.
             Spot is very similar to the move_distance function where the only difference is the wheel direction.

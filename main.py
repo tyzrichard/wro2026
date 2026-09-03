@@ -17,6 +17,7 @@ ev3 = EV3Brick()
 motorA = Motor(Port.A)
 motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.C)
+motorD = Motor(Port.D)
 leftColor = Ev3devSensor(Port.S1)
 middleColor = Ev3devSensor(Port.S2)
 rightColor = Ev3devSensor(Port.S3)
@@ -32,10 +33,14 @@ if ev3.battery.voltage() >= 7000:
     # motorC.run_target(-500, -1000) # (speed, angle)
     # acc.blackstop()
 
-    # # Phase 1: Move Bucket and Scan Mosaic
-    # acc.move_distance(1000)
     # while True:
-        # print(leftColor.read('RGB')[-1], rightColor.read('RGB')[-1])
+    #     print(
+    #         leftColor.read('RGB')[-1],
+    #         rightColor.read('RGB')[-1]
+    #     )
+    #     wait(50)
+
+    # # Phase 1: Move Bucket and Scan Mosaic
     # acc.turn_degrees(-180, mode="arc")
     # acc.turn_degrees(-90, mode="spot")
     # acc.line_following(740)
@@ -44,40 +49,36 @@ if ev3.battery.voltage() >= 7000:
     # acc.turn_degrees(-90, mode="spot")
     # acc.line_following_blackvar()
     
-
+    acc.line_following(10000, sensor='leftColor')
 
     # sensor_log = acc.move_colour_scan(600, default_max_speed=200)
     # for i in sensor_log: print(i)
 
     # Season Quest. We start from the yellow box facing towards it.
     
-    acc.line_following(300, sensor=middleColor)
-    acc.turn_degrees(-90, mode="spot")
-    acc.line_following(400, sensor=middleColor)
-    acc.turn_degrees(90, mode="arc", turn_radius=320)
-    acc.line_following(800, sensor=rightColor)
-    acc.turn_degrees(180, mode="arc", turn_radius=250)
-    acc.line_following_blackvar()
-    acc.move_distance(900)
-    acc.line_following_blackvar()
-    acc.turn_degrees(-90, mode="spot")
-    acc.turn_degrees(90, mode="arc", turn_radius=210)
-    acc.line_following_blackvar(kp=0, kd=0)
-    acc.turn_degrees(180, mode="spot")
-    acc.line_following(260, sensor=middleColor)
-    acc.turn_degrees(-90, mode="spot")
-    acc.line_following(400, sensor=middleColor)
-    acc.turn_degrees(90, mode="arc", turn_radius=320)
-    acc.line_following(800, sensor=rightColor)
-    acc.turn_degrees(180, mode="arc", turn_radius=250)
-    acc.line_following_blackvar()
-    acc.move_distance(900)
-    acc.line_following_blackvar()
-    acc.turn_degrees(-90, mode="spot")
-    acc.turn_degrees(90, mode="arc", turn_radius=210)
-    acc.line_following_blackvar(kp=0, kd=0)
-    acc.turn_degrees(180, mode="spot")
-
-
-
-
+    # acc.line_following(300, sensor=middleColor)
+    # acc.turn_degrees(-90, mode="spot")
+    # acc.line_following(400, sensor=middleColor)
+    # acc.turn_degrees(90, mode="arc", turn_radius=320)
+    # acc.line_following(800, sensor=rightColor)
+    # acc.turn_degrees(180, mode="arc", turn_radius=250)
+    # acc.line_following_blackvar()
+    # acc.move_distance(900)
+    # acc.line_following_blackvar()
+    # acc.turn_degrees(-90, mode="spot")
+    # acc.turn_degrees(90, mode="arc", turn_radius=210)
+    # acc.line_following_blackvar(kp=0, kd=0)
+    # acc.turn_degrees(180, mode="spot")
+    # acc.line_following(260, sensor=middleColor)
+    # acc.turn_degrees(-90, mode="spot")
+    # acc.line_following(400, sensor=middleColor)
+    # acc.turn_degrees(90, mode="arc", turn_radius=320)
+    # acc.line_following(800, sensor=rightColor)
+    # acc.turn_degrees(180, mode="arc", turn_radius=250)
+    # acc.line_following_blackvar()
+    # acc.move_distance(900)
+    # acc.line_following_blackvar()
+    # acc.turn_degrees(-90, mode="spot")
+    # acc.turn_degrees(90, mode="arc", turn_radius=210)
+    # acc.line_following_blackvar(kp=0, kd=0)
+    # acc.turn_degrees(180, mode="spot")

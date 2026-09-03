@@ -121,7 +121,7 @@ if ev3.battery.voltage() >= 7000:
     # acc.move_distance(110)
     # acc.turn_degrees(-30, mode="spot")
     # acc.move_distance(100)
-    # acc.line_following(200)
+    # acc.line_following(200, sensor=leftColor)
     # acc.turn_degrees(90, mode="spot")
     # slap.slap_slapper()
     # acc.turn_degrees(-90, mode="spot")
@@ -191,4 +191,3 @@ if ev3.battery.voltage() >= 7000:
 
     # acc.line_following(500) # idk which sensor to use so wont hit barrier or flattener
     # acc.turn_degrees(-45, mode="arc", turn_radius=270, default_max_speed=700) # put shovel into start zone
-    

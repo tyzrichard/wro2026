@@ -11,8 +11,8 @@ import MiscSetup as misc
 motorC = Motor(Port.C)
 
 def slap_slapper():
-    motorC.run(-270)
+    motorC.run(-500) #was -270
     wait(2000)
     
 def raise_slapper():
-    motorC.run_angle(200, 360)
+    motorC.run_angle(400, 500) #2nd val was 360

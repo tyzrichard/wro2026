@@ -20,7 +20,7 @@ robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 wheel_rad = 31.2  
 w2w_length = 192  # short for wheel to wheel length. im not writing allat
 min_rad = 200   # arc radius for full steer (tune), usually more than half of wheel_to_wheel_length
-beep_time = 50
+beep_time = 0
 
 def dist_to_angle(dist):
     return (dist / (math.pi * wheel_rad * 2)) * 360

@@ -163,7 +163,7 @@ class AccelerationController:
         wait(beep_time)
         return sensor_log
 
-    def line_following(self, target_distance, default_min_speed=50, default_max_speed=600, default_ramp_dist=200, target_light=162, sensor=None, kp=0.07, kd=0.0007):
+    def line_following(self, target_distance, default_min_speed=50, default_max_speed=600, default_ramp_dist=200, target_light=162, sensor=None, kp=0.1, kd=0.0000):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.
@@ -201,7 +201,7 @@ class AccelerationController:
         ev3.speaker.beep()
         wait(beep_time)
 
-    def blackstop(self, creep_speed=50, target_light=160, buffer=20, filter_alpha=0.55):
+    def blackstop(self, creep_speed=50, left_target_light=125, right_target_light=135, buffer=20, filter_alpha=0.75, kp=0.5):
         """
             Moves the vehicle slowly towards a black line and stops. 
             Left and right sensors are used to reposition the wheels.
@@ -216,7 +216,9 @@ class AccelerationController:
         left_light = leftColor.read('RGB')[-1]
         right_light = rightColor.read('RGB')[-1]
 
-        while abs(left_light - target_light) > buffer or abs(right_light - target_light) > buffer:
+        stable = 0
+
+        while stable <= 5:
             raw_left = leftColor.read('RGB')[-1]
             raw_right = rightColor.read('RGB')[-1]
 
@@ -230,60 +232,86 @@ class AccelerationController:
             left_light = filtered_left
             right_light = filtered_right
 
-            if left_light > target_light:
-                motorB.run(creep_angle)
-            elif (target_light - left_light) >= buffer:
-                motorB.run(-0.2 * creep_angle)
-            else:
-                motorB.stop()
+            left_good = abs(left_light - left_target_light) <= buffer
+            right_good = abs(right_light - right_target_light) <= buffer
 
-            if right_light > target_light:
-                motorA.run(creep_angle)
-            elif (target_light - right_light) >= buffer:
-                motorA.run(-0.2 * creep_angle)
+            MIN_FORWARD_SPEED = 12
+            MIN_REVERSE_SPEED = 6
+
+            left_error = left_light - left_target_light
+            if abs(left_error) <= buffer:
+                motorB.hold()
             else:
-                motorA.stop()
+                left_speed = kp * left_error
+                left_speed = max(-creep_angle, min(creep_angle, left_speed))
+
+                if 0 < left_speed < MIN_FORWARD_SPEED:
+                    left_speed = MIN_FORWARD_SPEED
+                elif -MIN_REVERSE_SPEED < left_speed < 0:
+                    left_speed = -MIN_REVERSE_SPEED
+
+                motorB.run(left_speed)
+
+            right_error = right_light - right_target_light
+            if abs(right_error) <= buffer:
+                motorA.hold()
+            else:
+                right_speed = kp * right_error
+
+                right_speed = max(-creep_angle, min(creep_angle, right_speed))
+
+                if 0 < right_speed < MIN_FORWARD_SPEED:
+                    right_speed = MIN_FORWARD_SPEED
+                elif -MIN_REVERSE_SPEED < right_speed < 0:
+                    right_speed = -MIN_REVERSE_SPEED
+
+                motorA.run(right_speed)
+
+            if left_good and right_good:
+                stable += 1
+            else:
+                stable = 0
             wait(5)
 
-        print(str(leftColor.read('RGB')[-1]) + "   " + str(middleColor.read('RGB')[-1]) + "  " + str(rightColor.read('RGB')[-1]))
+        # print(str(leftColor.read('RGB')[-1]) + "   " + str(middleColor.read('RGB')[-1]) + "  " + str(rightColor.read('RGB')[-1]))
 
-    def line_following_blackvar(self, min_speed=50, max_speed=100, ramp_dist=100, target_light=162, sensor=None, kp=0.07, kd=0.007):
-            """
-                Very similar to forward movement code, but it does so by following a line.
-                The only difference is where it calculates error and subsequent correction from.
-            """
-            robot.reset() 
-            avg_dist, ideal_speed = 0, 0
+    def line_following_blackvar(self, min_speed=50, max_speed=100, ramp_dist=100, target_light=162, black_buffer=60, sensor=None, kp=0.07, kd=0.007):
+        """
+            Very similar to forward movement code, but it does so by following a line.
+            The only difference is where it calculates error and subsequent correction from.
+        """
+        robot.reset() 
+        avg_dist, ideal_speed = 0, 0
     
-            if sensor is None:
-                sensor = Ev3devSensor(Port.S2)
-            color_sensor = sensor # Pass in Ev3devSensor object
-            pd_controller = PDController(kp=kp, kd=kd)
+        if sensor is None:
+            sensor = Ev3devSensor(Port.S2)
+        color_sensor = sensor # Pass in Ev3devSensor object
+        pd_controller = PDController(kp=kp, kd=kd)
     
-            while not(checkColor(0, 0, 0, leftColor.read('RGB')) or checkColor(0, 0, 0, rightColor.read('RGB'))):
-                avg_dist = robot.distance()
+        while leftColor.read('RGB')[-1] >= (target_light + black_buffer) and rightColor.read('RGB')[-1] >= (target_light + black_buffer):
+            avg_dist = robot.distance()
     
-                # PD Integration Code
-                current_light = color_sensor.read('RGB')[-1]
-                turn_rate = pd_controller.calculate(target_light, current_light)
+            # PD Integration Code
+            current_light = color_sensor.read('RGB')[-1]
+            turn_rate = pd_controller.calculate(target_light, current_light)
                 
-                if avg_dist >= ramp_dist:
-                    ideal_speed = max_speed
-                else: # RAMP_UP. I just threw the sigmoid code here.
-                    progress = avg_dist / ramp_dist
-                    x = progress * 5 - 2.5
-                    sigmoid = 1 / (1 + math.exp(-x))
-                    ideal_speed = (max_speed - min_speed) * sigmoid + min_speed
+            if avg_dist >= ramp_dist:
+                ideal_speed = max_speed
+            else: # RAMP_UP. I just threw the sigmoid code here.
+                progress = avg_dist / ramp_dist
+                x = progress * 5 - 2.5
+                sigmoid = 1 / (1 + math.exp(-x))
+                ideal_speed = (max_speed - min_speed) * sigmoid + min_speed
+
+            max_turn_rate = ideal_speed * 0.8   # tune this multiplier
+            turn_rate = max(-max_turn_rate, min(max_turn_rate, turn_rate))
     
-                max_turn_rate = ideal_speed * 0.8   # tune this multiplier
-                turn_rate = max(-max_turn_rate, min(max_turn_rate, turn_rate))
-    
-                robot.drive(ideal_speed, turn_rate)
-                wait(5)
-            robot.stop()
-            self.blackstop()
-            ev3.speaker.beep()
-            wait(beep_time)
+            robot.drive(ideal_speed, turn_rate)
+            wait(5)
+        robot.stop()
+        self.blackstop()
+        ev3.speaker.beep()
+        wait(beep_time)
 
     def turn_degrees(self, turn_angle, mode="spot", turn_radius=min_rad, default_min_speed = 30, default_max_speed=500, default_ramp_dist=100):
         """

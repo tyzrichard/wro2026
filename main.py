@@ -35,7 +35,7 @@ if ev3.battery.voltage() >= 7000:
     # # Phase 1: Move Bucket and Scan Mosaic
     # acc.move_distance(1000)
     # while True:
-        # print(leftColor.read('RGB')[-1], rightColor.read('RGB')[-1])
+    #     print(leftColor.read('RGB')[-1], rightColor.read('RGB')[-1])
     # acc.turn_degrees(-180, mode="arc")
     # acc.turn_degrees(-90, mode="spot")
     # acc.line_following(740)
@@ -50,10 +50,9 @@ if ev3.battery.voltage() >= 7000:
     # for i in sensor_log: print(i)
 
     # Season Quest. We start from the yellow box facing towards it.
-    
     acc.line_following(300, sensor=middleColor)
     acc.turn_degrees(-90, mode="spot")
-    acc.line_following(400, sensor=middleColor)
+    acc.line_following(390, sensor=middleColor)
     acc.turn_degrees(90, mode="arc", turn_radius=320)
     acc.line_following(800, sensor=rightColor)
     acc.turn_degrees(180, mode="arc", turn_radius=250)
@@ -64,20 +63,4 @@ if ev3.battery.voltage() >= 7000:
     acc.turn_degrees(90, mode="arc", turn_radius=210)
     acc.line_following_blackvar(kp=0, kd=0)
     acc.turn_degrees(180, mode="spot")
-    acc.line_following(260, sensor=middleColor)
-    acc.turn_degrees(-90, mode="spot")
-    acc.line_following(400, sensor=middleColor)
-    acc.turn_degrees(90, mode="arc", turn_radius=320)
-    acc.line_following(800, sensor=rightColor)
-    acc.turn_degrees(180, mode="arc", turn_radius=250)
-    acc.line_following_blackvar()
-    acc.move_distance(900)
-    acc.line_following_blackvar()
-    acc.turn_degrees(-90, mode="spot")
-    acc.turn_degrees(90, mode="arc", turn_radius=210)
-    acc.line_following_blackvar(kp=0, kd=0)
-    acc.turn_degrees(180, mode="spot")
-
-
-
-
+    

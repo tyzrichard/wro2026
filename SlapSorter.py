@@ -9,10 +9,33 @@ import Acceleration as acceleration
 import MiscSetup as misc
 
 motorC = Motor(Port.C)
+motorD = Motor(Port.D)
 
 def slap_slapper():
-    motorC.run(-500) #was -270
-    wait(2000)
-    
+    # Runs until it physically can't move any further (hits the limit), then stops
+    motorC.run_until_stalled(-1000, then=Stop.HOLD, duty_limit=90)
+
 def raise_slapper():
-    motorC.run_angle(400, 500) #2nd val was 360
+    motorC.run_angle(600, 350) # speed, rot_angle
+
+def grab():
+    motorD.run_until_stalled(600, then=Stop.HOLD, duty_limit=90)
+
+def release():
+    motorD.run_until_stalled(-600, then=Stop.HOLD, duty_limit=90)
+
+def left():
+    motorC.run_target(1000, -100, then=Stop.HOLD)
+
+def mid():
+    motorC.run_target(1000, -650, then=Stop.HOLD)
+
+def right():
+    motorC.run_target(1000, -1250, then=Stop.HOLD)
+
+def left_block():
+    motorC.run_target(1000, -300, then=Stop.HOLD)
+
+def right_block():
+    motorC.run_target(1000, -1150, then=Stop.HOLD)
+

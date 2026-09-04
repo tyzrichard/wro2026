@@ -76,7 +76,7 @@ class AccelerationController:
         sigmoid = 1 / (1 + math.exp(-x))
         return (max_speed - min_speed) * sigmoid + min_speed
 
-    def move_distance(self, target_distance, default_min_speed = 50, default_max_speed=2000, default_ramp_dist=200):
+    def move_distance(self, target_distance, default_min_speed = 50, default_max_speed=1200, default_ramp_dist=300):
         """
             Moves the robot forwards with smooth acceleration and motor synchronisation.
             1. Calculates distances for all three phases
@@ -84,13 +84,15 @@ class AccelerationController:
             3. For each loop, it gets Phase and Progress based on encoder distances, and calculates the speed required.
             4. Calculates Error from previous loop and factors it when running motors.
         """
-        ramp_dist, cruise_dist, max_speed = self.dist_planning(target_distance, default_max_speed, default_ramp_dist)
+        ramp_dist, cruise_dist, max_speed = self.dist_planning(abs(target_distance), default_max_speed, default_ramp_dist)
         motorA.reset_angle(0)
         motorB.reset_angle(0)
         avg_dist, ideal_speed = 0, 0
+        direction = 1 if target_distance > 0 else -1
+        target_distance = abs(target_distance)
 
         while avg_dist < target_distance:
-            avg_dist = (angle_to_dist(motorA.angle()) + angle_to_dist(motorB.angle())) / 2
+            avg_dist = (angle_to_dist(direction*motorA.angle()) + angle_to_dist(direction*motorB.angle())) / 2
             phase, progress = self.get_phase(avg_dist, ramp_dist, cruise_dist, target_distance)
             
             if phase == "CRUISE":
@@ -98,18 +100,17 @@ class AccelerationController:
             else: # RAMP_UP or RAMP_DOWN
                 ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
 
-            error = angle_to_dist(motorA.angle()) - angle_to_dist(motorB.angle())
-            print(error)
+            error = angle_to_dist(direction*motorA.angle()) - angle_to_dist(direction*motorB.angle())
             correction = abs(error) * error * self.Kp 
 
-            motorA.run(ideal_speed - correction)
-            motorB.run(ideal_speed + correction)
+            motorA.run(direction*(ideal_speed - correction))
+            motorB.run(direction*(ideal_speed + correction))
             wait(5)
 
         motorA.stop()
         motorB.stop()
-        ev3.speaker.beep()
-        wait(beep_time)
+        # ev3.speaker.beep()
+        # wait(beep_time)
 
     def move_colour_scan(self, target_distance, last_sensor_dist=200, scan_interval_dist=50, default_min_speed=50, default_max_speed=200, default_ramp_dist=100):
         """
@@ -159,11 +160,11 @@ class AccelerationController:
 
         motorA.stop()
         motorB.stop()
-        ev3.speaker.beep()
-        wait(beep_time)
+        # ev3.speaker.beep()
+        # wait(beep_time)
         return sensor_log
 
-    def line_following(self, target_distance, default_min_speed=50, default_max_speed=600, default_ramp_dist=200, target_light=162, sensor=None, kp=0.1, kd=0.0000):
+    def line_following(self, target_distance, default_min_speed=50, default_max_speed=1000, default_ramp_dist=300, target_light=162, sensor=None, kp=0.1, kd=0.0000):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.
@@ -198,10 +199,10 @@ class AccelerationController:
             wait(5)
 
         robot.stop()
-        ev3.speaker.beep()
-        wait(beep_time)
+        # ev3.speaker.beep()
+        # wait(beep_time)
 
-    def blackstop(self, creep_speed=50, left_target_light=125, right_target_light=135, buffer=20, filter_alpha=0.75, kp=0.5):
+    def blackstop(self, creep_speed=70, left_target_light=125, right_target_light=135, buffer=20, filter_alpha=0.75, kp=0.5):
         """
             Moves the vehicle slowly towards a black line and stops. 
             Left and right sensors are used to reposition the wheels.
@@ -273,9 +274,7 @@ class AccelerationController:
                 stable = 0
             wait(5)
 
-        # print(str(leftColor.read('RGB')[-1]) + "   " + str(middleColor.read('RGB')[-1]) + "  " + str(rightColor.read('RGB')[-1]))
-
-    def line_following_blackvar(self, min_speed=50, max_speed=100, ramp_dist=100, target_light=162, black_buffer=60, sensor=None, kp=0.07, kd=0.007):
+    def line_following_blackvar(self, min_speed=50, max_speed=125, ramp_dist=100, target_light=162, black_buffer=60, sensor=None, kp=0.07, kd=0.007):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.
@@ -310,10 +309,10 @@ class AccelerationController:
             wait(5)
         robot.stop()
         self.blackstop()
-        ev3.speaker.beep()
-        wait(beep_time)
+        # ev3.speaker.beep()
+        # wait(beep_time)
 
-    def turn_degrees(self, turn_angle, mode="spot", turn_radius=min_rad, default_min_speed = 30, default_max_speed=700, default_ramp_dist=100):
+    def turn_degrees(self, turn_angle, mode="spot", turn_radius=min_rad, default_min_speed = 50, default_max_speed=1000, default_ramp_dist=200):
         """
             Makes the robot perform spot (tank) steering and arc steering.
             Spot is very similar to the move_distance function where the only difference is the wheel direction.
@@ -389,5 +388,5 @@ class AccelerationController:
                 wait(10)
             motorA.stop()
             motorB.stop()
-        ev3.speaker.beep()
-        wait(beep_time)
+        # ev3.speaker.beep()
+        # wait(beep_time)

@@ -10,6 +10,7 @@ import MiscSetup as misc
 
 motorC = Motor(Port.C)
 motorD = Motor(Port.D)
+acc = acceleration.AccelerationController(Kp=0.9)
 
 def slap_slapper():
     # Runs until it physically can't move any further (hits the limit), then stops
@@ -96,8 +97,35 @@ def order_blocks(fill_order):
         plan.append((color, placed))
         ptrs = new_ptrs
 
-    print(total_trips)
-    print(plan)
     return total_trips, plan
 
+def print_plan(plan):
+    for trip_num, (color, placed) in enumerate(plan, start=1):
+        parts = ["Column %d x%d" % (i + 1, cnt) for i, cnt in placed.items()]
+        print("Trip %d: get Sector %s blocks -> place into: %s" % (trip_num, color, ", ".join(parts)))
 
+def move_to_sector(current, move_to):
+    if move_to < current: # sector is on left
+        acc.move_distance(-50, default_ramp_dist=100)
+        acc.turn_degrees(-90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
+        acc.move_distance(160*(current - move_to), default_ramp_dist=150)
+        acc.turn_degrees(90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
+        acc.line_following_blackvar(small=True)
+    else: # sector is on right
+        acc.move_distance(-50, default_ramp_dist=100)
+        acc.turn_degrees(90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
+        acc.move_distance(160*(move_to - current), default_ramp_dist=150)
+        acc.turn_degrees(-90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
+        acc.line_following_blackvar(small=True)
+
+
+def entire_block_phase(plan):
+    current_sector = 0
+    for trip_num, (color, placed) in enumerate(plan, start=1):
+        if trip_num == 1:
+            acc.line_following_blackvar(small=True)
+            current_sector = color
+        else:
+            move_to_sector(current_sector, color)
+            current_sector = color
+    

@@ -29,13 +29,18 @@ acc = acceleration.AccelerationController(Kp=0.9)
 if ev3.battery.voltage() >= 7000:
     # misc.reset_slider()
     # 1. Move to Mosaic, Scan and Backtrack
-    acc.turn_degrees(-90, mode="arc", turn_radius=300)
-    acc.turn_degrees(90, mode="arc", turn_radius=225)
-    acc.line_following_blackvar(kp=0, kd=0)
-    results_log = acc.move_colour_scan(400)
-    acc.move_distance(-730)
-    acc.turn_degrees(180, mode="spot")
+    # acc.turn_degrees(-90, mode="arc", turn_radius=300)
+    # acc.turn_degrees(90, mode="arc", turn_radius=225)
+    # acc.line_following_blackvar(kp=0, kd=0)
+    # results_log = acc.move_colour_scan(400)
+    # acc.move_distance(-730)
+    # acc.turn_degrees(180, mode="spot")
+    results_log = [[1, 2, 1, 0], [2, 2, 1, 2], [3, 1, 0, 0]]
     trips, plan = slap.order_blocks(results_log)
+    print("Minimum number of trips (color-location switches): %d\n" % (trips))
+    slap.print_plan(plan)
+    print(plan)
+    slap.entire_block_phase(plan)
     
     
     # acc.line_following_blackvar(small=True)

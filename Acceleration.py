@@ -28,7 +28,7 @@ def dist_to_angle(dist):
 def angle_to_dist(angle):
     return (angle / 360) * (math.pi * wheel_rad * 2)
 
-def checkColor(r, g, b, color, buffer=30):
+def checkColor(r, g, b, color, buffer=25):
     if abs(color[0] - r) < buffer and abs(color[1] - g) < buffer and abs(color[2] - b) < buffer:
         return True
     return False
@@ -37,17 +37,17 @@ class AccelerationController:
     def __init__(self, Kp=0.5):
         self.Kp = Kp
 
-    def dist_planning(self, target_distance, default_max_speed, default_ramp_dist):
+    def dist_planning(self, target_distance, default_max_speed, default_ramp_dist, decel_scale=1.5):
         """
             Returns the distances needed for the ramps (both are same), cruise and max speed achievable.
             If the distance is too short cruising is removed and the ramps scaled down proportionally.
             All input/outputs are in mm.
         """
-        if target_distance >= default_ramp_dist * 2: # Distance is sufficient
-            cruise_dist = target_distance - (default_ramp_dist * 2)
+        if target_distance >= default_ramp_dist * (1 + decel_scale): # Distance is sufficient
+            cruise_dist = target_distance - (default_ramp_dist * (1 + decel_scale))
             return default_ramp_dist, cruise_dist, default_max_speed
         else: # Distance is NOT sufficient
-            ramp_dist = target_distance / 2
+            ramp_dist = target_distance / (1 + decel_scale)
             cruise_dist = 0
             max_speed = default_max_speed * (ramp_dist / default_ramp_dist)
             # I got lazy and just calculated max_speed proportionally. Distance covered will still be the same.
@@ -112,7 +112,7 @@ class AccelerationController:
         # ev3.speaker.beep()
         # wait(beep_time)
 
-    def move_colour_scan(self, target_distance, last_sensor_dist=200, scan_interval_dist=50, default_min_speed=50, default_max_speed=300, default_ramp_dist=100):
+    def move_colour_scan(self, target_distance, last_sensor_dist=205, scan_interval_dist=50, default_min_speed=50, default_max_speed=300, default_ramp_dist=100):
         """
             Forward moving code with extra bits added to log colours starting from the mosaic's black border and every scan_interval_dist afterwards.
         """
@@ -141,17 +141,18 @@ class AccelerationController:
 
             if  avg_dist - last_sensor_dist >= scan_interval_dist and len(sensor_log) < 4:
                 colorReads = [leftColor.read('RGB'), middleColor.read('RGB'), rightColor.read('RGB')]
-                for i in range(len(colorReads)):
-                    if checkColor(110, 110, 115, colorReads[i]):
-                        sensor_log[i].append("White" + str(colorReads[i]) )
+                for i in range(len(colorReads)): # append colour sector index
+                    if checkColor(100, 100, 100, colorReads[i]):
+                        sensor_log[i].append(3) # White
                     elif checkColor(110, 93, 35, colorReads[i]):
-                        sensor_log[i].append("Yellow" + str(colorReads[i]))
+                        sensor_log[i].append(0) # Yellow
                     elif checkColor(15, 30, 70, colorReads[i]):
-                        sensor_log[i].append("Blue" + str(colorReads[i]))
+                        sensor_log[i].append(1) # Blue
                     elif checkColor(25, 38, 30, colorReads[i]):
-                        sensor_log[i].append("Green"+ str(colorReads[i]))
+                        sensor_log[i].append(2) # Green
                     else:
-                        sensor_log[i].append("NA" + str(colorReads[i]))
+                        sensor_log[i].append(1) # NA, but I'll put it as Blue
+                    print(sensor_log[i], colorReads[i])
                 last_sensor_dist = avg_dist
             wait(10)
 

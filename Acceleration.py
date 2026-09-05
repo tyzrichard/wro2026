@@ -151,7 +151,7 @@ class AccelerationController:
                     elif checkColor(25, 38, 30, colorReads[i]):
                         sensor_log[i].append("Green"+ str(colorReads[i]))
                     else:
-                        sensor_line.append("NA" + str(colorReads[i]))
+                        sensor_log[i].append("NA" + str(colorReads[i]))
                 last_sensor_dist = avg_dist
             wait(10)
 
@@ -159,8 +159,8 @@ class AccelerationController:
         motorB.stop()
         # ev3.speaker.beep()
         # wait(beep_time)
-        for i in sensor_log:
-            print("Column %: %" % (i+1, colorReads[i]))
+        # for i in sensor_log:
+        #     print("Column %: %" % (i+1, colorReads[i]))
         return sensor_log
 
     def line_following(self, target_distance, default_min_speed=50, default_max_speed=1000, default_ramp_dist=300, target_light=162, sensor=None, kp=0.1, kd=0.0000):
@@ -262,19 +262,7 @@ class AccelerationController:
 
                     motorB.run(left_speed)
             else:
-                mid_error = mid_light - mid_target_light
-                if abs(mid_error) <= buffer:
-                    motorB.hold()
-                else:
-                    left_speed = kp * mid_error
-                    left_speed = max(-creep_angle, min(creep_angle, left_speed))
-
-                    if 0 < left_speed < MIN_FORWARD_SPEED:
-                        left_speed = MIN_FORWARD_SPEED
-                    elif -MIN_REVERSE_SPEED < left_speed < 0:
-                        left_speed = -MIN_REVERSE_SPEED
-
-                    motorB.run(left_speed)
+                motorB.hold()
 
 
             right_error = right_light - right_target_light
@@ -294,7 +282,7 @@ class AccelerationController:
 
             if left_good and right_good and not(small):
                 stable += 1
-            elif mid_good and right_good and small:
+            elif right_good and small:
                 stable += 1
             else:
                 stable = 0
@@ -308,6 +296,7 @@ class AccelerationController:
         """
         robot.reset() 
         avg_dist, ideal_speed = 0, 0
+        if small: max_speed=50
     
         if sensor is None:
             sensor = Ev3devSensor(Port.S2)

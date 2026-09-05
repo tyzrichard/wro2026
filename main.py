@@ -27,23 +27,38 @@ print(ev3.battery.voltage())
 acc = acceleration.AccelerationController(Kp=0.9)
 
 if ev3.battery.voltage() >= 7000:
-    misc.reset_slider()
+    # misc.reset_slider()
+    # 1. Move to Mosaic, Scan and Backtrack
+    # acc.turn_degrees(-90, mode="arc", turn_radius=300)
+    # acc.turn_degrees(90, mode="arc", turn_radius=225)
+    # acc.line_following_blackvar(kp=0, kd=0)
+    # results_log = acc.move_colour_scan(400)
+    # acc.move_distance(-730)
+    # acc.turn_degrees(180, mode="spot")
+    
+    # while True:
+    #     
+    acc.line_following_blackvar(small=True)
+    
 
+    # slap.left_block()
+    # slap.grab()
+    # # slap.slight_raise()
     # slap.left()
-    # wait(1000)
+    # slap.release()
+    # slap.right_block()
+    # slap.grab()
     # slap.mid()
-    # wait(1000)
-    # slap.right()
-    # wait(1000)
-    while True:
-        slap.left_block()
-        slap.grab()
-        slap.release()
-        wait(2000)
-        slap.right_block()
-        slap.grab()
-        slap.release()
-        wait(2000)
+    # slap.release()
+    #     slap.release()
+    #     wait(2000)
+    #     slap.right_block()
+    #     slap.grab()
+    #     slap.release()
+    #     wait(2000)
+
+
+
 
     # Season Quest 4
     # # 1. Mold

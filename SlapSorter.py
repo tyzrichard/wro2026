@@ -21,21 +21,24 @@ def raise_slapper():
 def grab():
     motorD.run_until_stalled(600, then=Stop.HOLD, duty_limit=90)
 
+def slight_raise():
+    motorD.run_angle(300, -60)
+
 def release():
     motorD.run_until_stalled(-600, then=Stop.HOLD, duty_limit=90)
 
 def left():
-    motorC.run_target(1000, -100, then=Stop.HOLD)
+    motorC.run_target(1500, -100, then=Stop.HOLD, wait=False)
 
 def mid():
-    motorC.run_target(1000, -650, then=Stop.HOLD)
+    motorC.run_target(1500, -650, then=Stop.HOLD, wait=False)
 
 def right():
-    motorC.run_target(1000, -1250, then=Stop.HOLD)
+    motorC.run_target(1500, -1250, then=Stop.HOLD, wait=False)
 
 def left_block():
-    motorC.run_target(1000, -300, then=Stop.HOLD)
+    motorC.run_target(1500, -300, then=Stop.HOLD)
 
 def right_block():
-    motorC.run_target(1000, -1150, then=Stop.HOLD)
+    motorC.run_target(1500, -1150, then=Stop.HOLD)
 

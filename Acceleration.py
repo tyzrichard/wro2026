@@ -17,8 +17,8 @@ middleColor = Ev3devSensor(Port.S2)
 rightColor = Ev3devSensor(Port.S3)
 robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 
-wheel_rad = 31.2  
-w2w_length = 192  # short for wheel to wheel length. im not writing allat
+wheel_rad = 31.2  # 63.76 wheel diameter as measured(?)
+w2w_length = 191.28  # short for wheel to wheel length. im not writing allat
 min_rad = 200   # arc radius for full steer (tune), usually more than half of wheel_to_wheel_length
 beep_time = 0
 
@@ -34,37 +34,40 @@ def checkColor(r, g, b, color, buffer=25):
     return False
 
 class AccelerationController:
-    def __init__(self, Kp=0.5):
+    def __init__(self, Kp=0.01):
         self.Kp = Kp
 
-    def dist_planning(self, target_distance, default_max_speed, default_ramp_dist, decel_scale=1.5):
+    def dist_planning(self, target_distance, default_max_speed, default_ramp_dist, decel_scale=1):
         """
             Returns the distances needed for the ramps (both are same), cruise and max speed achievable.
             If the distance is too short cruising is removed and the ramps scaled down proportionally.
             All input/outputs are in mm.
         """
-        if target_distance >= default_ramp_dist * (1 + decel_scale): # Distance is sufficient
-            cruise_dist = target_distance - (default_ramp_dist * (1 + decel_scale))
-            return default_ramp_dist, cruise_dist, default_max_speed
-        else: # Distance is NOT sufficient
-            ramp_dist = target_distance / (1 + decel_scale)
+        decel_dist = default_ramp_dist * decel_scale
+        if target_distance >= default_ramp_dist + decel_dist:
+            cruise_dist = target_distance - default_ramp_dist - decel_dist
+            return default_ramp_dist, decel_dist, cruise_dist, default_max_speed
+        else:
+            # scale both ramp phases down proportionally to fit
+            scale = target_distance / (default_ramp_dist + decel_dist)
+            ramp_dist = default_ramp_dist * scale
+            decel_dist = decel_dist * scale
             cruise_dist = 0
-            max_speed = default_max_speed * (ramp_dist / default_ramp_dist)
-            # I got lazy and just calculated max_speed proportionally. Distance covered will still be the same.
-            return ramp_dist, cruise_dist, max_speed
+            max_speed = default_max_speed * scale
+            return ramp_dist, decel_dist, cruise_dist, max_speed
 
-    def get_phase(self, dist_travelled, ramp_dist, cruise_dist, total_dist):
+    def get_phase(self, dist_travelled, ramp_dist, decel_dist, cruise_dist, total_dist):
         """
             Returns the appropriate phase (Ramp up, Cruise, Ramp down) and the progress for each ramp for speed scaling.
             All input/outputs are in mm.
         """
-        if dist_travelled < ramp_dist: # Phase 1: Speeding up
-            return "RAMP_UP", (dist_travelled / ramp_dist) # From 0 to 1
-        elif dist_travelled < ramp_dist + cruise_dist: # Phase 2: Cruising
+        if dist_travelled < ramp_dist:
+            return "RAMP_UP", (dist_travelled / ramp_dist)
+        elif dist_travelled < ramp_dist + cruise_dist:
             return "CRUISE", 1
         else:
-            remaining = total_dist - dist_travelled # Phase 3: Slowing down
-            return "RAMP_DOWN", (remaining / ramp_dist) # From 1 to 0
+            remaining = total_dist - dist_travelled
+            return "RAMP_DOWN", (remaining / decel_dist)
     
     def compute_ramp_speed(self, progress, min_speed, max_speed):
         """
@@ -76,7 +79,7 @@ class AccelerationController:
         sigmoid = 1 / (1 + math.exp(-x))
         return (max_speed - min_speed) * sigmoid + min_speed
 
-    def move_distance(self, target_distance, default_min_speed = 50, default_max_speed=1200, default_ramp_dist=300):
+    def move_distance(self, target_distance, default_min_speed = 20, default_max_speed=1000, default_ramp_dist=200):
         """
             Moves the robot forwards with smooth acceleration and motor synchronisation.
             1. Calculates distances for all three phases
@@ -84,7 +87,7 @@ class AccelerationController:
             3. For each loop, it gets Phase and Progress based on encoder distances, and calculates the speed required.
             4. Calculates Error from previous loop and factors it when running motors.
         """
-        ramp_dist, cruise_dist, max_speed = self.dist_planning(abs(target_distance), default_max_speed, default_ramp_dist)
+        ramp_dist, decel_dist, cruise_dist, max_speed = self.dist_planning(abs(target_distance), default_max_speed, default_ramp_dist)
         motorA.reset_angle(0)
         motorB.reset_angle(0)
         avg_dist, ideal_speed = 0, 0
@@ -93,7 +96,7 @@ class AccelerationController:
 
         while avg_dist < target_distance:
             avg_dist = (angle_to_dist(direction*motorA.angle()) + angle_to_dist(direction*motorB.angle())) / 2
-            phase, progress = self.get_phase(avg_dist, ramp_dist, cruise_dist, target_distance)
+            phase, progress = self.get_phase(avg_dist, ramp_dist, decel_dist, cruise_dist, target_distance)
             
             if phase == "CRUISE":
                 ideal_speed = max_speed
@@ -116,7 +119,7 @@ class AccelerationController:
         """
             Forward moving code with extra bits added to log colours starting from the mosaic's black border and every scan_interval_dist afterwards.
         """
-        ramp_dist, cruise_dist, max_speed = self.dist_planning(target_distance, default_max_speed, default_ramp_dist)
+        ramp_dist, decel_dist, cruise_dist, max_speed = self.dist_planning(target_distance, default_max_speed, default_ramp_dist)
         motorA.reset_angle(0)
         motorB.reset_angle(0)
         avg_dist, ideal_speed = 0, 0
@@ -126,7 +129,7 @@ class AccelerationController:
 
         while avg_dist < target_distance:
             avg_dist = (angle_to_dist(motorA.angle()) + angle_to_dist(motorB.angle())) / 2
-            phase, progress = self.get_phase(avg_dist, ramp_dist, cruise_dist, target_distance)
+            phase, progress = self.get_phase(avg_dist, ramp_dist, decel_dist, cruise_dist, target_distance)
             
             if phase == "CRUISE":
                 ideal_speed = max_speed
@@ -164,14 +167,18 @@ class AccelerationController:
         #     print("Column %: %" % (i+1, colorReads[i]))
         return sensor_log
 
-    def line_following(self, target_distance, default_min_speed=50, default_max_speed=1000, default_ramp_dist=300, target_light=162, sensor=None, kp=0.1, kd=0.0000):
+    def line_following(self, target_distance, default_min_speed=20, default_max_speed=300, default_ramp_dist=300, target_light=162, sensor=None, kp=0.9, kd=0.0000):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.
         """
-        ramp_dist, cruise_dist, max_speed = self.dist_planning(target_distance, default_max_speed, default_ramp_dist)
+        ramp_dist, decel_dist, cruise_dist, max_speed = self.dist_planning(target_distance, default_max_speed, default_ramp_dist)
         robot.reset() 
         avg_dist, ideal_speed = 0, 0
+
+        # motorA.reset_angle(0)
+        # motorB.reset_angle(0)
+        # avg_dist, ideal_speed = 0, 0
 
         if sensor is None:
             sensor = Ev3devSensor(Port.S1)
@@ -180,11 +187,12 @@ class AccelerationController:
 
         while avg_dist < target_distance:
             avg_dist = robot.distance()
-            phase, progress = self.get_phase(avg_dist, ramp_dist, cruise_dist, target_distance)
+            # avg_dist = (angle_to_dist(motorA.angle()) + angle_to_dist(motorB.angle())) / 2
+            phase, progress = self.get_phase(avg_dist, ramp_dist, decel_dist, cruise_dist, target_distance)
 
             # PD Integration Code
             current_light = color_sensor.read('RGB')[-1]
-            turn_rate = pd_controller.calculate(target_light, current_light) 
+            error = pd_controller.calculate(target_light, current_light) 
             
             if phase == "CRUISE":
                 ideal_speed = max_speed
@@ -195,10 +203,17 @@ class AccelerationController:
             max_turn_rate = ideal_speed * 0.8  # tune this multiplier
             turn_rate = max(-max_turn_rate, min(max_turn_rate, turn_rate))
 
+            correction = abs(error) * error * kp #/ 100
+            # motorA.run(ideal_speed - correction)
+            # motorB.run(ideal_speed + correction)
+            # print(error)
+
             robot.drive(ideal_speed, turn_rate)
             wait(5)
 
         robot.stop()
+        # motorA.stop()
+        # motorB.stop()
         # ev3.speaker.beep()
         # wait(beep_time)
 
@@ -329,7 +344,7 @@ class AccelerationController:
         # ev3.speaker.beep()
         # wait(beep_time)
 
-    def turn_degrees(self, turn_angle, mode="spot", turn_radius=min_rad, default_min_speed = 50, default_max_speed=1000, default_ramp_dist=200):
+    def turn_degrees(self, turn_angle, mode="spot", turn_radius=min_rad, default_min_speed=20, default_max_speed=1000, default_ramp_dist=100, kp=0.1):
         """
             Makes the robot perform spot (tank) steering and arc steering.
             Spot is very similar to the move_distance function where the only difference is the wheel direction.
@@ -339,7 +354,7 @@ class AccelerationController:
             wheel_dist = angle_to_dist(abs(turn_angle) * (w2w_length / (2 * wheel_rad)))
             orientation = 1 if turn_angle > 0 else -1
 
-            ramp_dist, cruise_dist, max_speed = self.dist_planning(wheel_dist, default_max_speed, default_ramp_dist)
+            ramp_dist, decel_dist, cruise_dist, max_speed = self.dist_planning(wheel_dist, default_max_speed, default_ramp_dist)
             motorA.reset_angle(0)
             motorB.reset_angle(0)
 
@@ -347,7 +362,7 @@ class AccelerationController:
     
             while avg_dist < wheel_dist:
                 avg_dist = (abs(angle_to_dist(motorA.angle())) + abs(angle_to_dist(motorB.angle()))) / 2
-                phase, progress = self.get_phase(avg_dist, ramp_dist, cruise_dist, wheel_dist)
+                phase, progress = self.get_phase(avg_dist, ramp_dist, decel_dist, cruise_dist, wheel_dist)
                 
                 if phase == "CRUISE":
                     ideal_speed = max_speed
@@ -355,7 +370,7 @@ class AccelerationController:
                     ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
     
                 error = abs(angle_to_dist(motorA.angle())) - abs(angle_to_dist(motorB.angle()))
-                correction = abs(error) * error * self.Kp / 100
+                correction = abs(error) * error * kp / 100
     
                 motorA.run(-orientation*(ideal_speed - correction))
                 motorB.run(orientation*(ideal_speed + correction))
@@ -379,7 +394,7 @@ class AccelerationController:
 
             ratio = inner_target / outer_target
 
-            ramp_dist, cruise_dist, outer_max_speed = self.dist_planning(outer_target, default_max_speed, default_ramp_dist)
+            ramp_dist, decel_dist, cruise_dist, outer_max_speed = self.dist_planning(outer_target, default_max_speed, default_ramp_dist)
 
             motorA.reset_angle(0)
             motorB.reset_angle(0)
@@ -387,7 +402,7 @@ class AccelerationController:
 
             while outer_dist_travelled < outer_target:
                 outer_dist_travelled = angle_to_dist(outer_motor.angle())
-                phase, progress = self.get_phase(outer_dist_travelled, ramp_dist, cruise_dist, outer_target)
+                phase, progress = self.get_phase(outer_dist_travelled, ramp_dist, decel_dist, cruise_dist, outer_target)
 
                 if phase == "CRUISE":
                     outer_speed = outer_max_speed

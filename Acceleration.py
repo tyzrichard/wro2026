@@ -12,6 +12,7 @@ import math
 ev3 = EV3Brick()
 motorA = Motor(Port.A)
 motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
+motorC = Motor(Port.C)
 leftColor = Ev3devSensor(Port.S1)
 middleColor = Ev3devSensor(Port.S2)
 rightColor = Ev3devSensor(Port.S3)
@@ -34,9 +35,6 @@ def checkColor(r, g, b, color, buffer=25):
     return False
 
 class AccelerationController:
-    def __init__(self, Kp=0.01):
-        self.Kp = Kp
-
     def dist_planning(self, target_distance, default_max_speed, default_ramp_dist, decel_scale=1):
         """
             Returns the distances needed for the ramps (both are same), cruise and max speed achievable.
@@ -79,7 +77,7 @@ class AccelerationController:
         sigmoid = 1 / (1 + math.exp(-x))
         return (max_speed - min_speed) * sigmoid + min_speed
 
-    def move_distance(self, target_distance, default_min_speed = 20, default_max_speed=1000, default_ramp_dist=200):
+    def move_distance(self, target_distance, default_min_speed = 20, default_max_speed=1000, default_ramp_dist=200, kp=0.01):
         """
             Moves the robot forwards with smooth acceleration and motor synchronisation.
             1. Calculates distances for all three phases
@@ -92,6 +90,7 @@ class AccelerationController:
         motorB.reset_angle(0)
         avg_dist, ideal_speed = 0, 0
         direction = 1 if target_distance > 0 else -1
+        if target_distance < 0: kp = 0.01 # backwards kp 
         target_distance = abs(target_distance)
 
         while avg_dist < target_distance:
@@ -104,7 +103,7 @@ class AccelerationController:
                 ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
 
             error = angle_to_dist(direction*motorA.angle()) - angle_to_dist(direction*motorB.angle())
-            correction = abs(error) * error * self.Kp 
+            correction = abs(error) * error * kp 
 
             motorA.run(direction*(ideal_speed - correction))
             motorB.run(direction*(ideal_speed + correction))
@@ -112,10 +111,10 @@ class AccelerationController:
 
         motorA.stop()
         motorB.stop()
-        # ev3.speaker.beep()
-        # wait(beep_time)
+        ev3.speaker.beep()
+        wait(beep_time)
 
-    def move_colour_scan(self, target_distance, last_sensor_dist=205, scan_interval_dist=50, default_min_speed=50, default_max_speed=300, default_ramp_dist=100):
+    def move_colour_scan(self, target_distance, last_sensor_dist=205, scan_interval_dist=50, default_min_speed=50, default_max_speed=500, default_ramp_dist=70, kp=0.01):
         """
             Forward moving code with extra bits added to log colours starting from the mosaic's black border and every scan_interval_dist afterwards.
         """
@@ -137,12 +136,12 @@ class AccelerationController:
                 ideal_speed = self.compute_ramp_speed(progress, default_min_speed, max_speed)
 
             error = angle_to_dist(motorA.angle()) - angle_to_dist(motorB.angle())
-            correction = abs(error) * error * self.Kp / 100
+            correction = abs(error) * error * kp / 100
 
             motorA.run(ideal_speed - correction)
             motorB.run(ideal_speed + correction)
 
-            if  avg_dist - last_sensor_dist >= scan_interval_dist and len(sensor_log) < 4:
+            if avg_dist - last_sensor_dist >= scan_interval_dist and len(sensor_log) < 4:
                 colorReads = [leftColor.read('RGB'), middleColor.read('RGB'), rightColor.read('RGB')]
                 for i in range(len(colorReads)): # append colour sector index
                     if checkColor(100, 100, 100, colorReads[i]):
@@ -161,13 +160,13 @@ class AccelerationController:
 
         motorA.stop()
         motorB.stop()
-        # ev3.speaker.beep()
-        # wait(beep_time)
+        ev3.speaker.beep()
+        wait(beep_time)
         # for i in sensor_log:
         #     print("Column %: %" % (i+1, colorReads[i]))
         return sensor_log
 
-    def line_following(self, target_distance, default_min_speed=20, default_max_speed=300, default_ramp_dist=300, target_light=162, sensor=None, kp=0.9, kd=0.0000):
+    def line_following(self, target_distance, default_min_speed=20, default_max_speed=300, default_ramp_dist=300, target_light=162, sensor=None, kp=0.1, kd=0.0000):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.
@@ -192,7 +191,7 @@ class AccelerationController:
 
             # PD Integration Code
             current_light = color_sensor.read('RGB')[-1]
-            error = pd_controller.calculate(target_light, current_light) 
+            turn_rate = pd_controller.calculate(target_light, current_light) 
             
             if phase == "CRUISE":
                 ideal_speed = max_speed
@@ -201,7 +200,7 @@ class AccelerationController:
 
             # Clamp turn_rate so it can't overwhelm ideal_speed at low speeds
             max_turn_rate = ideal_speed * 0.8  # tune this multiplier
-            turn_rate = max(-max_turn_rate, min(max_turn_rate, turn_rate))
+            error = max(-max_turn_rate, min(max_turn_rate, turn_rate))
 
             correction = abs(error) * error * kp #/ 100
             # motorA.run(ideal_speed - correction)
@@ -214,8 +213,61 @@ class AccelerationController:
         robot.stop()
         # motorA.stop()
         # motorB.stop()
-        # ev3.speaker.beep()
-        # wait(beep_time)
+        ev3.speaker.beep()
+        wait(beep_time)
+    
+    # def blackstop(self, max_creep_speed=100, left_target_light=125, mid_target_light=110,
+    #             right_target_light=135, buffer=10, filter_alpha=0.75,
+    #             kp=0.5, kd=0.15, settle_deriv_thresh=3, small=False):
+    #     motorA.reset_angle(0)
+    #     motorB.reset_angle(0)
+
+    #     filtered_left = filtered_right = None
+    #     left_pd = PDController(kp=kp, kd=kd)
+    #     right_pd = PDController(kp=kp, kd=kd)
+
+    #     def speed_cap(error):
+    #         # scale ceiling with error magnitude, floor near buffer edge
+    #         scale = min(1.0, abs(error) / (buffer * 4))
+    #         return dist_to_angle(max_creep_speed * max(0.15, scale))
+
+    #     while True:
+    #         raw_left = leftColor.read('RGB')[-1]
+    #         raw_right = rightColor.read('RGB')[-1]
+
+    #         filtered_left = raw_left if filtered_left is None else \
+    #             filter_alpha * raw_left + (1 - filter_alpha) * filtered_left
+    #         filtered_right = raw_right if filtered_right is None else \
+    #             filter_alpha * raw_right + (1 - filter_alpha) * filtered_right
+
+    #         left_error = filtered_left - left_target_light
+    #         right_error = filtered_right - right_target_light
+    #         left_good = abs(left_error) <= buffer
+    #         right_good = abs(right_error) <= buffer
+
+    #         if not small:
+    #             if left_good:
+    #                 motorB.hold()
+    #             else:
+    #                 left_speed = left_pd.calculate(left_target_light, filtered_left)
+    #                 cap = speed_cap(left_error)
+    #                 motorB.run(max(-cap, min(cap, left_speed)))
+    #         else:
+    #             motorB.hold()
+
+    #         if right_good:
+    #             motorA.hold()
+    #         else:
+    #             right_speed = right_pd.calculate(right_target_light, filtered_right)
+    #             cap = speed_cap(right_error)
+    #             motorA.run(max(-cap, min(cap, right_speed)))
+
+    #         left_settled = left_good and abs(left_pd.last_derivative) <= settle_deriv_thresh
+    #         right_settled = right_good and abs(right_pd.last_derivative) <= settle_deriv_thresh
+
+    #         if (small and right_settled) or (not small and left_settled and right_settled):
+    #             break
+    #         wait(5)
 
     def blackstop(self, creep_speed=70, left_target_light=125, mid_target_light=110, right_target_light=135, buffer=10, filter_alpha=0.75, kp=0.5, small=False):
         """
@@ -302,8 +354,8 @@ class AccelerationController:
                 stable += 1
             else:
                 stable = 0
-            print(leftColor.read('RGB')[-1], middleColor.read('RGB')[-1], rightColor.read('RGB')[-1])
-            wait(5)
+            # print(leftColor.read('RGB')[-1], middleColor.read('RGB')[-1], rightColor.read('RGB')[-1])
+            wait(3)
 
     def line_following_blackvar(self, min_speed=50, max_speed=100, ramp_dist=100, target_light=162, black_buffer=60, sensor=None, kp=0.07, kd=0.007, small=False):
         """
@@ -341,8 +393,8 @@ class AccelerationController:
             wait(5)
         robot.stop()
         self.blackstop(small=small)
-        # ev3.speaker.beep()
-        # wait(beep_time)
+        ev3.speaker.beep()
+        wait(beep_time)
 
     def turn_degrees(self, turn_angle, mode="spot", turn_radius=min_rad, default_min_speed=20, default_max_speed=1000, default_ramp_dist=100, kp=0.1):
         """
@@ -374,7 +426,7 @@ class AccelerationController:
     
                 motorA.run(-orientation*(ideal_speed - correction))
                 motorB.run(orientation*(ideal_speed + correction))
-                wait(10)
+                wait(5)
             motorA.stop()
             motorB.stop()
 
@@ -413,12 +465,12 @@ class AccelerationController:
                 inner_dist_travelled = angle_to_dist(inner_motor.angle())
                 expected_inner_dist = outer_dist_travelled * ratio
                 error = inner_dist_travelled - expected_inner_dist
-                correction = error * abs(error) * self.Kp / 100
+                correction = error * abs(error) * kp / 100
 
                 outer_motor.run(outer_speed)
                 inner_motor.run(inner_speed + correction)
-                wait(10)
+                wait(5)
             motorA.stop()
             motorB.stop()
-        # ev3.speaker.beep()
-        # wait(beep_time)
+        ev3.speaker.beep()
+        wait(beep_time)

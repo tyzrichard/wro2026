@@ -34,21 +34,24 @@ class PDController:
             self.filtered_value = (self.filter_alpha * current_value + (1 - self.filter_alpha) * self.filtered_value)
 
         current_time = self.timer.time()
-        error = threshold_value - current_value              # P term: raw, no lag
-        filtered_error = threshold_value - self.filtered_value  # D term: filtered, smoothed
+        error = threshold_value - current_value
+        filtered_error = threshold_value - self.filtered_value
 
         p_term = self.kp * error * abs(error) / 100
 
         if current_time > 0:
             dt = current_time / 1000.0
-            d_term = self.kd * (filtered_error - self.previous_filtered_error) / dt
+            raw_derivative = (filtered_error - self.previous_filtered_error) / dt
+            d_term = self.kd * raw_derivative
         else:
+            raw_derivative = 0
             d_term = 0
 
         output = p_term + d_term
 
+        self.last_derivative = raw_derivative   # <-- store here, before returning
         self.previous_error = error
-        self.previous_filtered_error = filtered_error   # separate tracking var needed
+        self.previous_filtered_error = filtered_error
         self.timer.reset()
 
         return output

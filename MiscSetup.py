@@ -8,6 +8,7 @@ ev3 = EV3Brick()
 motorA = Motor(Port.A)
 motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.C)
+motorD = Motor(Port.D)
 
 def reset_slider():
     """
@@ -18,7 +19,8 @@ def reset_slider():
         wait(10)
     motorC.stop()
     motorC.reset_angle(0)
-    motorC.run_target(900, -1300, then=Stop.HOLD)
+    motorD.reset_angle(0)
+    # motorC.run_target(900, -600, then=Stop.HOLD)
 
 def calibrate_sensor():
     """

@@ -1,6 +1,6 @@
 #!/usr/bin/env pybricks-micropython
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor
+from pybricks.ev3devices import Motor, TouchSensor 
 from pybricks.iodevices import Ev3devSensor
 from pybricks.parameters import Port, Stop, Direction, Button, Color
 from pybricks.tools import wait, StopWatch, DataLog
@@ -21,7 +21,7 @@ motorD = Motor(Port.D)
 leftColor = Ev3devSensor(Port.S1)
 middleColor = Ev3devSensor(Port.S2)
 rightColor = Ev3devSensor(Port.S3)
-pushButton = Ev3devSensor(Port.S4)
+pushButton = TouchSensor(Port.S4)
 robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 print(ev3.battery.voltage())
 
@@ -29,7 +29,7 @@ acc = acceleration.AccelerationController()
 
 def touch_button_pressed():
     """Return True while the pushbutton is pressed."""
-    return pushButton.read('TOUCH')[0] == 1
+    return pushButton.pressed() 
 
 def wait_for_new_touch_press():
     """Wait for one new press without counting a held button twice."""
@@ -39,19 +39,31 @@ def wait_for_new_touch_press():
     while not touch_button_pressed():
         wait(10)
 
-if ev3.battery.voltage() >= 7000:
+    ev3.speaker.beep()
+    print("Touch button on Port 4 pressed")
 
+if ev3.battery.voltage() >= 7000:
     wait_for_new_touch_press()
 
-    misc.reset_slider()
+    misc.reset_slider("right",False)
+
     motorD.hold()
 
     wait_for_new_touch_press()
 
-    acc.turn_degrees(180, mode="spot")
-    acc.turn_degrees(-70, mode="arc", turn_radius=200, default_ramp_dist=100)
-    acc.turn_degrees(70, mode="arc", turn_radius=200, default_ramp_dist=100)
-    acc.line_following_blackvar(kp=0, kd=0)
+    while True:
+        wait_for_new_touch_press()
+        slap.slap_slapper()
+        wait(100)
+        wait_for_new_touch_press()
+        slap.raise_slapper()
+        wait(100)
+
+
+    #testing
+
+    # acc.move_distance(90, default_ramp_dist=100)
+
     # # 1. Move to Mosaic, Scan and Backtrack
     # acc.turn_degrees(-90, mode="arc", turn_radius=300, default_ramp_dist=150)
     # acc.turn_degrees(90, mode="arc", turn_radius=225, default_ramp_dist=150)
@@ -71,9 +83,11 @@ if ev3.battery.voltage() >= 7000:
     # acc.turn_degrees(90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
     # acc.line_following(80, sensor=middleColor, default_ramp_dist=150)
     # acc.turn_degrees(90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
-    # acc.line_following(160, sensor=middleColor)
-    # acc.line_following_blackvar(small=True)
-    # slap.drop_blocks(1000)
+
+    #here
+    acc.line_following(160, sensor=middleColor)
+    acc.line_following_blackvar(small=True)
+    slap.drop_blocks(1000)
 
     # # HARDCODED PICK ALL SAME COLOUR
     # acc.line_following_blackvar(small=True)

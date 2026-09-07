@@ -26,6 +26,7 @@ def raise_slapper():
 def grab():
     motorD.run_until_stalled(600, then=Stop.HOLD, duty_limit=90)
 
+
 def release(wait=True):
     motorD.run_target(300, 0, wait=wait)
     # motorD.run_until_stalled(-300, then=Stop.HOLD, duty_limit=90, wait=wait)
@@ -306,23 +307,30 @@ def entire_block_phase(plan):
 
                 if current_sector == 0: # FINAL COLOUR IS YELLOW
                     acc.turn_degrees(180, mode="spot")
-                    acc.turn_degrees(-70, mode="arc", turn_radius=300, default_ramp_dist=150)
-                    acc.turn_degrees(70, mode="arc", turn_radius=300, default_ramp_dist=150)
+                    acc.turn_degrees(-80, mode="arc", turn_radius=150, default_ramp_dist=160)
+                    acc.turn_degrees(75, mode="arc", turn_radius=160, default_ramp_dist=160)
                     acc.line_following_blackvar(kp=0, kd=0)
                     
 
                 elif current_sector == 1: # FINAL COLOUR IS BLUE
                     acc.turn_degrees(180, mode="spot")
-                    acc.turn_degrees(-70, mode="arc", turn_radius=300, default_ramp_dist=150)
-                    acc.turn_degrees(70, mode="arc", turn_radius=300, default_ramp_dist=150)
+                    acc.turn_degrees(-80, mode="arc", turn_radius=50, default_ramp_dist=160)
+                    acc.turn_degrees(75, mode="arc", turn_radius=53, default_ramp_dist=160)
                     acc.line_following_blackvar(kp=0, kd=0)
 
                 elif current_sector == 2: # FINAL COLOUR IS GREEN
                     # same as blue but degrees flipped
+                    acc.turn_degrees(180, mode="spot")
+                    acc.turn_degrees(80, mode="arc", turn_radius=50, default_ramp_dist=160)
+                    acc.turn_degrees(-75, mode="arc", turn_radius=53, default_ramp_dist=160)
+                    acc.line_following_blackvar(kp=0, kd=0)
 
                 elif current_sector == 3: # FINAL COLOUR IS WHITE
                     # same as yellow but degrees flipped
-
+                    acc.turn_degrees(180, mode="spot")
+                    acc.turn_degrees(80, mode="arc", turn_radius=150, default_ramp_dist=160)
+                    acc.turn_degrees(-75, mode="arc", turn_radius=160, default_ramp_dist=160)
+                    acc.line_following_blackvar(kp=0, kd=0)
                 
         
                 # Premptively move to the left/right block while moving to the next sector

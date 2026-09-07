@@ -357,7 +357,7 @@ class AccelerationController:
             # print(leftColor.read('RGB')[-1], middleColor.read('RGB')[-1], rightColor.read('RGB')[-1])
             wait(3)
 
-    def line_following_blackvar(self, min_speed=50, max_speed=100, ramp_dist=100, target_light=162, black_buffer=60, sensor=None, kp=0.07, kd=0.007, small=False):
+    def line_following_blackvar(self, min_speed=50, max_speed=80, ramp_dist=100, target_light=162, black_buffer=60, sensor=None, kp=0.07, kd=0.007, small=False):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.

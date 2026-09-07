@@ -90,7 +90,7 @@ class AccelerationController:
         motorB.reset_angle(0)
         avg_dist, ideal_speed = 0, 0
         direction = 1 if target_distance > 0 else -1
-        if target_distance < 0: kp = 0.01 # backwards kp 
+        if target_distance < 0: kp = 1 # backwards kp 
         target_distance = abs(target_distance)
 
         while avg_dist < target_distance:
@@ -166,7 +166,7 @@ class AccelerationController:
         #     print("Column %: %" % (i+1, colorReads[i]))
         return sensor_log
 
-    def line_following(self, target_distance, default_min_speed=20, default_max_speed=300, default_ramp_dist=300, target_light=162, sensor=None, kp=0.1, kd=0.0000):
+    def line_following(self, target_distance, default_min_speed=20, default_max_speed=300, default_ramp_dist=300, target_light=162, sensor=None, kp=0.04, kd=0.0000):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.
@@ -208,7 +208,7 @@ class AccelerationController:
             # print(error)
 
             robot.drive(ideal_speed, turn_rate)
-            wait(5)
+            wait(1)
 
         robot.stop()
         # motorA.stop()

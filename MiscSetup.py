@@ -12,28 +12,21 @@ motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.C)
 motorD = Motor(Port.D)
 
-def reset_slider(point,wait_logic):
+def reset_slider(point, wait_logic):
     """
     Resets arm slider position and angle
     """
-    timer=StopWatch()
-    motorD.run(-1000)
-    motorC.run(1000)
+    motorD.reset_angle(0)
 
+    # Home motor C against a physical stall point
+    motorC.run(1000)
     while not motorC.control.stalled():
         wait(10)
-
     motorC.stop()
     motorC.reset_angle(0)
     motorC.run_target(100, -600, then=Stop.HOLD, wait=False)
-    slap.move(point,wait_logic)
 
-    while timer.time() < 1500:
-        wait (10)
-
-    motorD.stop()
-    motorD.run_target(15, 0, then=Stop.HOLD, wait=True)
-    motorD.reset_angle(0)
+    slap.move(point, wait_logic)
 
 def calibrate_sensor():
     """

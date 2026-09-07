@@ -109,16 +109,16 @@ def move_to_sector(current, move_to):
         acc.turn_degrees(-90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
         acc.move_distance(160*(current - move_to), default_ramp_dist=150) 
         acc.turn_degrees(90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
-        # acc.line_following_blackvar(small=True)
-        acc.move_distance(50) # used to be 160
+        acc.line_following_blackvar(small=True)
+        # acc.move_distance(80) # used to be 160
     else: # sector is on right
         acc.turn_degrees(90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
         acc.move_distance(160*(move_to - current), default_ramp_dist=150)
         acc.turn_degrees(-90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
-        # acc.line_following_blackvar(small=True)
-        acc.move_distance(50) # used to be 160
+        acc.line_following_blackvar(small=True)
+        # acc.move_distance(80) # used to be 160
 
-def grab_blocks(sector, placed, start_dist=0, block_dist=60): #old start_dist was 30
+def grab_blocks(sector, placed, start_dist=30, block_dist=60): #old start_dist was 30
     moved = False
     forward_mm = 0
     items = list(placed.items())  
@@ -127,7 +127,6 @@ def grab_blocks(sector, placed, start_dist=0, block_dist=60): #old start_dist wa
         for i in range(cnt):
             is_last_block = (col_idx == num_cols - 1) and (i == cnt - 1)
             blockInven[sector] += 1
-    
             if blockInven[sector] == 1:
                 acc.move_distance(-start_dist, default_ramp_dist=130)
                 # move('left_block')
@@ -235,27 +234,27 @@ def entire_block_phase(plan):
             move('left_block', wait=False)
             if current_sector == 0:
                 acc.turn_degrees(-90, mode="spot")
-                # acc.line_following(240, sensor=middleColor, default_ramp_dist=130)
-                acc.move_distance(240, default_ramp_dist=130)
+                acc.line_following(240, sensor=middleColor, default_ramp_dist=130)
+                # acc.move_distance(240, default_ramp_dist=130)
                 acc.turn_degrees(90, mode="spot")
             elif current_sector == 1:
                 acc.turn_degrees(-90, mode="spot")
-                # acc.line_following(80, sensor=middleColor, default_ramp_dist=130)
-                acc.move_distance(80, default_ramp_dist=130)
+                acc.line_following(80, sensor=middleColor, default_ramp_dist=130)
+                # acc.move_distance(80, default_ramp_dist=130)
                 acc.turn_degrees(90, mode="spot")
             elif current_sector == 2:
                 acc.turn_degrees(90, mode="spot")
-                # acc.line_following(80, sensor=middleColor, default_ramp_dist=130)
-                acc.move_distance(80, default_ramp_dist=130)
+                acc.line_following(80, sensor=middleColor, default_ramp_dist=130)
+                # acc.move_distance(80, default_ramp_dist=130)
                 acc.turn_degrees(-90, mode="spot")
             elif current_sector == 3:
                 acc.turn_degrees(90, mode="spot")
-                # acc.line_following(240, sensor=middleColor, default_ramp_dist=130)
-                acc.move_distance(240, default_ramp_dist=130)
+                acc.line_following(240, sensor=middleColor, default_ramp_dist=130)
+                # acc.move_distance(240, default_ramp_dist=130)
                 acc.turn_degrees(-90, mode="spot")
-            acc.move_distance(180, default_ramp_dist=130)
-            # acc.line_following(160, sensor=middleColor, default_ramp_dist=130)
-            # acc.line_following_blackvar(small=True)
+            # acc.move_distance(180, default_ramp_dist=130)
+            acc.line_following(160, sensor=middleColor, default_ramp_dist=130) # used to be 160
+            acc.line_following_blackvar(small=True)
             forward_mm = grab_blocks(current_sector, placed)
             acc.move_distance(-(50 + forward_mm), default_ramp_dist=100)
         else:
@@ -295,13 +294,7 @@ def entire_block_phase(plan):
             if next_sector is not None:
                 # Return to the starting position of the current colour segment cuz theres still another colour
                 acc.move_distance(-(50 + forward_mm),default_ramp_dist=100)
-
             else:
-                
-                #   Column 1: forward_mm = 0
-                #   Column 2: forward_mm = block_dist
-                #   Column 3: forward_mm = 2 * block_dist
-                
                 motorC.hold()
                 motorD.hold()
 
@@ -311,7 +304,6 @@ def entire_block_phase(plan):
                     acc.turn_degrees(75, mode="arc", turn_radius=160, default_ramp_dist=160)
                     acc.line_following_blackvar(kp=0, kd=0)
                     
-
                 elif current_sector == 1: # FINAL COLOUR IS BLUE
                     acc.turn_degrees(180, mode="spot")
                     acc.turn_degrees(-80, mode="arc", turn_radius=50, default_ramp_dist=160)
@@ -333,12 +325,12 @@ def entire_block_phase(plan):
                     acc.line_following_blackvar(kp=0, kd=0)
                 
         
-                # Premptively move to the left/right block while moving to the next sector
-                if next_sector is not None:
-                    if (blockInven[next_sector] + 1) % 2 == 1:
-                        move('left_block', wait=False)
-                    else:
-                        move('right_block', wait=False)
+            # Premptively move to the left/right block while moving to the next sector
+            if next_sector is not None:
+                if (blockInven[next_sector] + 1) % 2 == 1:
+                    move('left_block', wait=False)
+                else:
+                    move('right_block', wait=False)
 
 
 def drop_blocks(target_distance, last_drop_dist=390, drop_interval_dist=80):

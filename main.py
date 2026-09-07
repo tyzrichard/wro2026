@@ -43,50 +43,26 @@ def wait_for_new_touch_press():
     print("Touch button on Port 4 pressed")
 
 if ev3.battery.voltage() >= 7000:
-    # wait_for_new_touch_press()
-
-    # misc.reset_slider("right",False)
-
-    # motorD.hold()
-
     wait_for_new_touch_press()
-
-
-    
-
-    # testing
-    while True:
-        # wait_for_new_touch_press()
-        # slap.slap_slapper()
-        # wait(20)
-        # wait_for_new_touch_press()
-        # slap.raise_slapper()
-        # wait(20)
-
-        wait(20)
-        acc.move_distance(90, default_ramp_dist=90)
-        wait_for_new_touch_press()
-
-
-        
-
-
-    # acc.move_distance(90, default_ramp_dist=100)
+    motorD.hold()
+    misc.reset_slider("right",False)
+    wait_for_new_touch_press()    
 
     # # 1. Move to Mosaic, Scan and Backtrack
-    # acc.turn_degrees(-90, mode="arc", turn_radius=300, default_ramp_dist=150)
-    # acc.turn_degrees(90, mode="arc", turn_radius=225, default_ramp_dist=150)
-    # acc.move_distance(60, default_ramp_dist=100)
-    # acc.line_following_blackvar(kp=0, kd=0)
-    # results_log = acc.move_colour_scan(400)
-    # acc.move_distance(-630, default_ramp_dist=100)
-    # acc.turn_degrees(-180, mode="spot")
-    # acc.line_following_blackvar()
-    # results_log = [[2, 3, 1, 1], [1, 1, 2, 0], [0, 3, 2, 3]]
-    # trips, plan = slap.order_blocks(results_log)
-    # print("Minimum number of trips (color-location switches): %d\n" % (trips))
-    # slap.print_plan(plan)
-    # slap.entire_block_phase(plan)
+    acc.turn_degrees(-90, mode="arc", turn_radius=300, default_ramp_dist=150)
+    acc.turn_degrees(90, mode="arc", turn_radius=250, default_ramp_dist=150)
+    acc.move_distance(60, default_ramp_dist=100)
+    acc.line_following_blackvar(kp=0, kd=0)
+    results_log = acc.move_colour_scan(400)
+    acc.move_distance(-400, default_ramp_dist=150)
+    acc.turn_degrees(-180, mode="spot")
+    acc.line_following(320, sensor=middleColor, default_ramp_dist=100)
+    acc.move_distance(30)
+    results_log = [[2, 3, 1, 1], [1, 1, 2, 0], [0, 3, 2, 3]]
+    trips, plan = slap.order_blocks(results_log)
+    print("Minimum number of trips (color-location switches): %d\n" % (trips))
+    slap.print_plan(plan)
+    slap.entire_block_phase(plan)
 
 
     # acc.turn_degrees(90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
@@ -94,9 +70,9 @@ if ev3.battery.voltage() >= 7000:
     # acc.turn_degrees(90, mode="spot", default_max_speed=1000, default_ramp_dist=100)
 
     #here
-    acc.line_following(160, sensor=middleColor)
-    acc.line_following_blackvar(small=True)
-    slap.drop_blocks(1000)
+    # acc.line_following(160, sensor=middleColor)
+    # acc.line_following_blackvar(small=True)
+    # slap.drop_blocks(1000)
 
     # # HARDCODED PICK ALL SAME COLOUR
     # acc.line_following_blackvar(small=True)

@@ -32,6 +32,7 @@ def reset_slider(point,wait_logic):
         wait (10)
 
     motorD.stop()
+    motorD.run_target(15, 0, then=Stop.HOLD, wait=True)
     motorD.reset_angle(0)
 
 def calibrate_sensor():

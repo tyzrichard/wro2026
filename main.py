@@ -43,24 +43,33 @@ def wait_for_new_touch_press():
     print("Touch button on Port 4 pressed")
 
 if ev3.battery.voltage() >= 7000:
+    # wait_for_new_touch_press()
+
+    # misc.reset_slider("right",False)
+
+    # motorD.hold()
+
     wait_for_new_touch_press()
 
-    misc.reset_slider("right",False)
 
-    motorD.hold()
+    
 
-    wait_for_new_touch_press()
-
+    # testing
     while True:
+        # wait_for_new_touch_press()
+        # slap.slap_slapper()
+        # wait(20)
+        # wait_for_new_touch_press()
+        # slap.raise_slapper()
+        # wait(20)
+
+        wait(20)
+        acc.move_distance(90, default_ramp_dist=90)
         wait_for_new_touch_press()
-        slap.slap_slapper()
-        wait(100)
-        wait_for_new_touch_press()
-        slap.raise_slapper()
-        wait(100)
 
 
-    #testing
+        
+
 
     # acc.move_distance(90, default_ramp_dist=100)
 

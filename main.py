@@ -51,7 +51,7 @@ if ev3.battery.voltage() >= 7000:
     # acc.line_following(160, sensor=middleColor)
     # acc.line_following_blackvar(small=True)
     
-    
+    # # HARDCODED PICK ALL SAME COLOUR
     # acc.line_following_blackvar(small=True)
     # acc.move_distance(-20)
     # slap.move("left_block")
@@ -169,7 +169,7 @@ if ev3.battery.voltage() >= 7000:
     #     acc.turn_degrees(180, mode="arc", turn_radius=250, default_max_speed=700)
     
 
-    # # #MAINS
+    # # #MAINS (old route)
     # acc.turn_degrees(30, mode="spot")
     # acc.move_distance(110)
     # acc.turn_degrees(-30, mode="spot")

@@ -126,13 +126,13 @@ def grab_blocks(sector, placed, start_dist=0, block_dist=60): #old start_dist wa
         for i in range(cnt):
             is_last_block = (col_idx == num_cols - 1) and (i == cnt - 1)
             blockInven[sector] += 1
-
+    
             if blockInven[sector] == 1:
                 acc.move_distance(-start_dist, default_ramp_dist=130)
                 # move('left_block')
                 forward_mm = start_dist
             elif blockInven[sector] == 2:
-                if not(moved): 
+                if not(moved):
                     acc.move_distance(-start_dist, default_ramp_dist=130)
                 move('right_block')
                 forward_mm = start_dist

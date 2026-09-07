@@ -323,17 +323,14 @@ def entire_block_phase(plan):
                 elif current_sector == 3: # FINAL COLOUR IS WHITE
                     # same as yellow but degrees flipped
 
-                else:
-                    # A sector outside 0–3 indicates corrupted plan data.
-                    raise ValueError(
-                        "Invalid final sector: %s" % current_sector
-                    )
-                    # Premptively move to the left/right block while moving to the next sector
-                    if next_sector is not None:
-                        if (blockInven[next_sector] + 1) % 2 == 1:
-                            move('left_block', wait=False)
-                        else:
-                            move('right_block', wait=False)
+                
+        
+                # Premptively move to the left/right block while moving to the next sector
+                if next_sector is not None:
+                    if (blockInven[next_sector] + 1) % 2 == 1:
+                        move('left_block', wait=False)
+                    else:
+                        move('right_block', wait=False)
 
 
 def drop_blocks(target_distance, last_drop_dist=390, drop_interval_dist=80):

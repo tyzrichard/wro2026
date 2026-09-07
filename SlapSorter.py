@@ -161,7 +161,7 @@ def grab_blocks(sector, placed, start_dist=0, block_dist=60): #old start_dist wa
                 if not(moved):
                     acc.move_distance(2*block_dist - start_dist, default_ramp_dist=130)
                 move('right_block')
-                forward_mm = start_dist + 2*block+dist
+                forward_mm = start_dist + 2*block_dist
             grab()
             move(col)
             if is_last_block:
@@ -170,13 +170,64 @@ def grab_blocks(sector, placed, start_dist=0, block_dist=60): #old start_dist wa
             release()
             moved = True # subsequent grabs factor in the previous moved distance 
     
+def return_to_origin(current_sector, forward_mm):
+    """Return from the final storage sector to the origin.
+
+    The robot begins this function facing into the final brick storage area.
+    It reverses to the main mosaic line, moves sideways to the central origin
+    route, turns a total of 180 degrees, and then drives away from the storage
+    areas until it squares itself on the blue-star black line.
+    """
+
+    # Leave the final cube column and reverse fully to the main mosaic line.
+    acc.move_distance(
+        -(160 + forward_mm),
+        default_ramp_dist=100
+    )
+
+    # Return from the last colour to the centre between Blue and Green.
+    if current_sector == 0:       # Yellow
+        acc.turn_degrees(90, mode="spot")
+        acc.move_distance(240, default_ramp_dist=130)
+        acc.turn_degrees(90, mode="spot")
+
+    elif current_sector == 1:     # Blue
+        acc.turn_degrees(90, mode="spot")
+        acc.line_following(
+            80,
+            sensor=middleColor,
+            default_ramp_dist=130
+        )
+        acc.turn_degrees(90, mode="spot")
+
+    elif current_sector == 2:     # Green
+        acc.turn_degrees(-90, mode="spot")
+        acc.move_distance(80, default_ramp_dist=130)
+        acc.turn_degrees(-90, mode="spot")
+
+    elif current_sector == 3:     # White
+        acc.turn_degrees(-90, mode="spot")
+        acc.move_distance(240, default_ramp_dist=130)
+        acc.turn_degrees(-90, mode="spot")
+
+    else:
+        raise ValueError(
+            "Unknown final colour sector: %s" % current_sector
+        )
+
+    # Move away from the storages and align at the blue-star line.
+    acc.move_distance(300, default_ramp_dist=130)
+    acc.line_following_blackvar(kp=0, kd=0)
 
 def entire_block_phase(plan):
     current_sector = 0
     next_sector, next_placed = None, None
     for trip_num, (color, placed) in enumerate(plan, start=1):
         if trip_num < len(plan):
-            next_sector, next_placed = plan[trip_num]     
+            next_sector, next_placed = plan[trip_num]
+        else:
+            # No colour remains after the final trip
+            next_sector, next_placed = None, None
             
         if trip_num == 1:
             current_sector = color
@@ -210,38 +261,79 @@ def entire_block_phase(plan):
             move_to_sector(current_sector, color)
             current_sector = color
             forward_mm = grab_blocks(current_sector, placed)
+            # # RICHARD OLD CODE
+            # if next_sector is not None:
+            #     acc.move_distance(-(50 + forward_mm), default_ramp_dist=100)
+            # else: # move back to mosaic black line
+            #     acc.move_distance(-(160 + forward_mm), default_ramp_dist=100)
+            #     if current_sector == 0:
+            #         acc.turn_degrees(90, mode="spot")
+            #         # acc.line_following(240, sensor=middleColor, default_ramp_dist=130)
+            #         acc.move_distance(240, default_ramp_dist=130)
+            #         acc.turn_degrees(90, mode="spot")
+            #     elif current_sector == 1:
+            #         acc.turn_degrees(90, mode="spot")
+            #         acc.line_following(80, sensor=middleColor, default_ramp_dist=130)
+            #         # acc.move_distance(80, default_ramp_dist=130)
+            #         acc.turn_degrees(90, mode="spot")
+            #     elif current_sector == 2:
+            #         acc.turn_degrees(-90, mode="spot")
+            #         # acc.line_following(80, sensor=middleColor, default_ramp_dist=130)
+            #         acc.move_distance(80, default_ramp_dist=130)
+            #         acc.turn_degrees(-90, mode="spot")
+            #     elif current_sector == 3:
+            #         acc.turn_degrees(-90, mode="spot")
+            #         # acc.line_following(240, sensor=middleColor, default_ramp_dist=130)
+            #         acc.move_distance(240, default_ramp_dist=130)
+            #         acc.turn_degrees(-90, mode="spot")
+            #     acc.move_distance(300, default_ramp_dist=130)
+            #     acc.line_following_blackvar(kp=0, kd=0)
+            # # DENZEL NEW CODE (going to offload point) 
+            # # richard help to backtrack according to how deep into the blocks the bot is
+            # # richard help calibrate turning values
             if next_sector is not None:
-                acc.move_distance(-(50 + forward_mm), default_ramp_dist=100)
-            else: # move back to mosaic black line
-                acc.move_distance(-(160 + forward_mm), default_ramp_dist=100)
-                if current_sector == 0:
-                    acc.turn_degrees(90, mode="spot")
-                    # acc.line_following(240, sensor=middleColor, default_ramp_dist=130)
-                    acc.move_distance(240, default_ramp_dist=130)
-                    acc.turn_degrees(90, mode="spot")
-                elif current_sector == 1:
-                    acc.turn_degrees(90, mode="spot")
-                    acc.line_following(80, sensor=middleColor, default_ramp_dist=130)
-                    # acc.move_distance(80, default_ramp_dist=130)
-                    acc.turn_degrees(90, mode="spot")
-                elif current_sector == 2:
-                    acc.turn_degrees(-90, mode="spot")
-                    # acc.line_following(80, sensor=middleColor, default_ramp_dist=130)
-                    acc.move_distance(80, default_ramp_dist=130)
-                    acc.turn_degrees(-90, mode="spot")
-                elif current_sector == 3:
-                    acc.turn_degrees(-90, mode="spot")
-                    # acc.line_following(240, sensor=middleColor, default_ramp_dist=130)
-                    acc.move_distance(240, default_ramp_dist=130)
-                    acc.turn_degrees(-90, mode="spot")
-                acc.move_distance(300, default_ramp_dist=130)
-                acc.line_following_blackvar(kp=0, kd=0)
-        # Premptively move to the left/right block while moving to the next sector
-        if next_sector is not None:
-            if (blockInven[next_sector] + 1) % 2 == 1:
-                move('left_block', wait=False)
+                # Return to the starting position of the current colour segment cuz theres still another colour
+                acc.move_distance(-(50 + forward_mm),default_ramp_dist=100)
+
             else:
-                move('right_block', wait=False)
+                
+                #   Column 1: forward_mm = 0
+                #   Column 2: forward_mm = block_dist
+                #   Column 3: forward_mm = 2 * block_dist
+                
+                motorC.hold()
+                motorD.hold()
+
+                if current_sector == 0: # FINAL COLOUR IS YELLOW
+                    acc.turn_degrees(180, mode="spot")
+                    acc.turn_degrees(-70, mode="arc", turn_radius=300, default_ramp_dist=150)
+                    acc.turn_degrees(70, mode="arc", turn_radius=300, default_ramp_dist=150)
+                    acc.line_following_blackvar(kp=0, kd=0)
+                    
+
+                elif current_sector == 1: # FINAL COLOUR IS BLUE
+                    acc.turn_degrees(180, mode="spot")
+                    acc.turn_degrees(-70, mode="arc", turn_radius=300, default_ramp_dist=150)
+                    acc.turn_degrees(70, mode="arc", turn_radius=300, default_ramp_dist=150)
+                    acc.line_following_blackvar(kp=0, kd=0)
+
+                elif current_sector == 2: # FINAL COLOUR IS GREEN
+                    # same as blue but degrees flipped
+
+                elif current_sector == 3: # FINAL COLOUR IS WHITE
+                    # same as yellow but degrees flipped
+
+                else:
+                    # A sector outside 0–3 indicates corrupted plan data.
+                    raise ValueError(
+                        "Invalid final sector: %s" % current_sector
+                    )
+                    # Premptively move to the left/right block while moving to the next sector
+                    if next_sector is not None:
+                        if (blockInven[next_sector] + 1) % 2 == 1:
+                            move('left_block', wait=False)
+                        else:
+                            move('right_block', wait=False)
 
 
 def drop_blocks(target_distance, last_drop_dist=390, drop_interval_dist=80):

@@ -21,15 +21,32 @@ motorD = Motor(Port.D)
 leftColor = Ev3devSensor(Port.S1)
 middleColor = Ev3devSensor(Port.S2)
 rightColor = Ev3devSensor(Port.S3)
+pushButton = Ev3devSensor(Port.S4)
 robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 print(ev3.battery.voltage())
 
 acc = acceleration.AccelerationController()
 
+def touch_button_pressed():
+    """Return True while the pushbutton is pressed."""
+    return pushButton.read('TOUCH')[0] == 1
+
+def wait_for_new_touch_press():
+    """Wait for one new press without counting a held button twice."""
+    while touch_button_pressed():
+        wait(10)
+
+    while not touch_button_pressed():
+        wait(10)
+
 if ev3.battery.voltage() >= 7000:
+
+    wait_for_new_touch_press()
+
     misc.reset_slider()
     motorD.hold()
-    
+
+    wait_for_new_touch_press()
 
     
     # # 1. Move to Mosaic, Scan and Backtrack

@@ -1,21 +1,21 @@
-#!/usr/bin/env pybricks-micropython
-
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor
+from pybricks.ev3devices import Motor, ColorSensor
 from pybricks.parameters import Port, Stop, Direction, Button
 from pybricks.tools import wait, StopWatch
-from pybricks.iodevices import Ev3devSensor
 from pybricks.robotics import DriveBase
 from LineTracer import PDController
 import math
 
 ev3 = EV3Brick()
+
 motorA = Motor(Port.A)
 motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
 motorC = Motor(Port.C)
-leftColor = Ev3devSensor(Port.S1)
-middleColor = Ev3devSensor(Port.S2)
-rightColor = Ev3devSensor(Port.S3)
+motorD = Motor(Port.D)
+
+leftColor = ColorSensor(Port.S1)
+middleColor = ColorSensor(Port.S2)
+rightColor = ColorSensor(Port.S3)
 robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 
 wheel_rad = 31.2  # 63.76 wheel diameter as measured(?)
@@ -180,8 +180,8 @@ class AccelerationController:
         # avg_dist, ideal_speed = 0, 0
 
         if sensor is None:
-            sensor = Ev3devSensor(Port.S1)
-        color_sensor = sensor # Pass in Ev3devSensor object
+            sensor = ColorSensor(Port.S2)
+        color_sensor = sensor # Pass in ColorSensor object
         pd_controller = PDController(kp=kp, kd=kd)
 
         while avg_dist < target_distance:
@@ -215,59 +215,6 @@ class AccelerationController:
         # motorB.stop()
         ev3.speaker.beep()
         wait(beep_time)
-    
-    # def blackstop(self, max_creep_speed=100, left_target_light=125, mid_target_light=110,
-    #             right_target_light=135, buffer=10, filter_alpha=0.75,
-    #             kp=0.5, kd=0.15, settle_deriv_thresh=3, small=False):
-    #     motorA.reset_angle(0)
-    #     motorB.reset_angle(0)
-
-    #     filtered_left = filtered_right = None
-    #     left_pd = PDController(kp=kp, kd=kd)
-    #     right_pd = PDController(kp=kp, kd=kd)
-
-    #     def speed_cap(error):
-    #         # scale ceiling with error magnitude, floor near buffer edge
-    #         scale = min(1.0, abs(error) / (buffer * 4))
-    #         return dist_to_angle(max_creep_speed * max(0.15, scale))
-
-    #     while True:
-    #         raw_left = leftColor.read('RGB')[-1]
-    #         raw_right = rightColor.read('RGB')[-1]
-
-    #         filtered_left = raw_left if filtered_left is None else \
-    #             filter_alpha * raw_left + (1 - filter_alpha) * filtered_left
-    #         filtered_right = raw_right if filtered_right is None else \
-    #             filter_alpha * raw_right + (1 - filter_alpha) * filtered_right
-
-    #         left_error = filtered_left - left_target_light
-    #         right_error = filtered_right - right_target_light
-    #         left_good = abs(left_error) <= buffer
-    #         right_good = abs(right_error) <= buffer
-
-    #         if not small:
-    #             if left_good:
-    #                 motorB.hold()
-    #             else:
-    #                 left_speed = left_pd.calculate(left_target_light, filtered_left)
-    #                 cap = speed_cap(left_error)
-    #                 motorB.run(max(-cap, min(cap, left_speed)))
-    #         else:
-    #             motorB.hold()
-
-    #         if right_good:
-    #             motorA.hold()
-    #         else:
-    #             right_speed = right_pd.calculate(right_target_light, filtered_right)
-    #             cap = speed_cap(right_error)
-    #             motorA.run(max(-cap, min(cap, right_speed)))
-
-    #         left_settled = left_good and abs(left_pd.last_derivative) <= settle_deriv_thresh
-    #         right_settled = right_good and abs(right_pd.last_derivative) <= settle_deriv_thresh
-
-    #         if (small and right_settled) or (not small and left_settled and right_settled):
-    #             break
-    #         wait(5)
 
     def blackstop(self, creep_speed=70, left_target_light=125, mid_target_light=110, right_target_light=135, buffer=10, filter_alpha=0.75, kp=0.5, small=False):
         """
@@ -367,8 +314,8 @@ class AccelerationController:
         if small: max_speed=50
     
         if sensor is None:
-            sensor = Ev3devSensor(Port.S2)
-        color_sensor = sensor # Pass in Ev3devSensor object
+            sensor = ColorSensor(Port.S2)
+        color_sensor = sensor # Pass in ColorSensor object
         pd_controller = PDController(kp=kp, kd=kd)
     
         while (leftColor.read('RGB')[-1] >= (target_light + black_buffer) or small) and rightColor.read('RGB')[-1] >= (target_light + black_buffer):

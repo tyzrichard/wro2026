@@ -1,10 +1,6 @@
-#!/usr/bin/env pybricks-micropython
-
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor
 from pybricks.parameters import Port, Stop, Direction, Button, Color
 from pybricks.tools import wait, StopWatch
-from pybricks.iodevices import Ev3devSensor
 
 # Initialize EV3 Brick
 ev3 = EV3Brick()

@@ -1,15 +1,12 @@
 from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import Motor, ColorSensor
+from pybricks.ev3devices import Motor
 from pybricks.parameters import Port, Stop, Button, Direction
-from pybricks.tools import wait, StopWatch, DataLog
-
+from pybricks.tools import wait, StopWatch
+from pybricks.iodevices import I2CDevice
+from Hardware import motorA, motorB, motorC, motorD, leftColor, middleColor, rightColor, pushButton
 import SlapSorter as slap
 
 ev3 = EV3Brick()
-motorA = Motor(Port.A)
-motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
-motorC = Motor(Port.C)
-motorD = Motor(Port.D)
 
 def reset_slider(point, wait_logic):
     """
@@ -26,3 +23,4 @@ def reset_slider(point, wait_logic):
     motorC.run_target(100, -600, then=Stop.HOLD, wait=False)
 
     slap.move(point, wait_logic)
+

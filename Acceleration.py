@@ -1,22 +1,13 @@
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor, ColorSensor
 from pybricks.parameters import Port, Stop, Direction, Button
+from Hardware import motorA, motorB, motorC, motorD, robot, leftColor, middleColor, rightColor, pushButton
 from pybricks.tools import wait, StopWatch
 from pybricks.robotics import DriveBase
 from LineTracer import PDController
 import math
 
 ev3 = EV3Brick()
-
-motorA = Motor(Port.A)
-motorB = Motor(Port.B, Direction.COUNTERCLOCKWISE)
-motorC = Motor(Port.C)
-motorD = Motor(Port.D)
-
-leftColor = ColorSensor(Port.S1)
-middleColor = ColorSensor(Port.S2)
-rightColor = ColorSensor(Port.S3)
-robot = DriveBase(motorA, motorB, wheel_diameter=62.4, axle_track=192)
 
 wheel_rad = 31.2  # 63.76 wheel diameter as measured(?)
 w2w_length = 191.28  # short for wheel to wheel length. im not writing allat
@@ -180,7 +171,7 @@ class AccelerationController:
         # avg_dist, ideal_speed = 0, 0
 
         if sensor is None:
-            sensor = ColorSensor(Port.S2)
+            sensor = middleSensor
         color_sensor = sensor # Pass in ColorSensor object
         pd_controller = PDController(kp=kp, kd=kd)
 
@@ -314,7 +305,7 @@ class AccelerationController:
         if small: max_speed=50
     
         if sensor is None:
-            sensor = ColorSensor(Port.S2)
+            sensor = middleColor
         color_sensor = sensor # Pass in ColorSensor object
         pd_controller = PDController(kp=kp, kd=kd)
     

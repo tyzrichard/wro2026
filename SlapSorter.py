@@ -1,19 +1,12 @@
-from pybricks.ev3devices import Motor, ColorSensor
+from pybricks.ev3devices import Motor
 from pybricks.parameters import Port
 from pybricks.hubs import EV3Brick
 from pybricks.parameters import Stop, Direction, Button, Color
-from pybricks.tools import wait, StopWatch, DataLog
-from pybricks.robotics import DriveBase
-
+from pybricks.tools import wait, StopWatch
+from Hardware import motorA, motorB, motorC, motorD, leftColor, middleColor, rightColor, pushButton
 import Acceleration as acceleration
 import MiscSetup as misc
 
-motorC = Motor(Port.C)
-motorD = Motor(Port.D)
-
-leftColor = ColorSensor(Port.S1)
-middleColor = ColorSensor(Port.S2)
-rightColor = ColorSensor(Port.S3)
 acc = acceleration.AccelerationController(Kp=0.9)
 blockInven = [0, 0, 0, 0]
 

@@ -245,15 +245,17 @@ def entire_block_phase(plan):
                 move('right_block', wait=False)
 
 
-def drop_blocks(target_distance, last_drop_dist=390, drop_interval_dist=80):
+def drop_blocks(target_distance, last_drop_dist=390, drop_interval_dist=75):
     motorC.run_target(1000, -800, then=Stop.HOLD, wait=False)
-    acc.move_distance(last_drop_dist, default_ramp_dist=200)
+    acc.move_distance(last_drop_dist, default_ramp_dist=250)
     for i in range(3):
         slap_slapper()
-        acc.move_distance(-30, default_ramp_dist=100)
+        acc.move_distance(-25, default_ramp_dist=50)
         acc.move_distance(drop_interval_dist, default_ramp_dist=100)
         raise_slapper()
     slap_slapper()
-    acc.move_distance(-30, default_ramp_dist=100)
-    acc.move_distance(target_distance - last_drop_dist - 3*drop_interval_dist, default_ramp_dist=100)
+    acc.move_distance(-25, default_ramp_dist=50)
+    acc.move_distance(100, default_ramp_dist=100)
     raise_slapper()
+    acc.move_distance(target_distance - last_drop_dist - 3*drop_interval_dist - 100, default_ramp_dist=100)
+    

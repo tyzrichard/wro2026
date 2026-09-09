@@ -90,7 +90,7 @@ class AccelerationController:
         motorB.reset_angle(0)
         avg_dist, ideal_speed = 0, 0
         direction = 1 if target_distance > 0 else -1
-        if target_distance < 0: kp = 1 # backwards kp 
+        if target_distance < 0: kp = 0.5 # backwards kp 
         target_distance = abs(target_distance)
 
         while avg_dist < target_distance:

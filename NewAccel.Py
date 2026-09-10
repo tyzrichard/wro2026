@@ -122,10 +122,10 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
     kS = 28.0       # friction feedforward - leave at 0 for now
     #kV = 0.10      # speed feedforward
     kV_A = 0.100
-    kV_B = 0.0965
+    kV_B = 0.100 #0.0965
     #kA = 0.003 :SOB: it was nice while you lasted      # acceleration feedforward - tune later
-    kA_accel = 0.004
-    kA_decel = 0.003
+    kA_accel = 0.003
+    kA_decel = 0.003 
 
     MAX_TARGET_ACCEL = 3000
 
@@ -144,7 +144,7 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
 
     # ---------- FINAL POSITION SETTLING ----------
     DISTANCE_SCALE = 1.03
-    SETTLE_ZONE = 12.0        # mm from destination to enter position control
+    SETTLE_ZONE = 18.0        # mm from destination to enter position control
     SETTLE_TOL = 1.0       # acceptable final position error, mm
 
     SETTLE_KP = 20.0          # target deg/s per mm of position error
@@ -157,10 +157,10 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
 
 
     # ---------- WHEEL SYNC CONTROLLER ----------
-    kp_sync = 0.9
-    kd_sync = 0.01
+    kp_sync = 1.5
+    kd_sync = 0.02
 
-    MAX_SYNC_CORRECTION = 6.0
+    MAX_SYNC_CORRECTION = 8.0
 
     deriv_alpha = 0.5
     target_distance *= DISTANCE_SCALE

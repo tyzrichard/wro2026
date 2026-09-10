@@ -39,7 +39,7 @@ def dist_planning(target_distance, default_max_speed, default_ramp_dist, decel_s
         cruise_dist = target_distance - default_ramp_dist - decel_dist
         return default_ramp_dist, decel_dist, cruise_dist, default_max_speed
     else:
-        scale = target_distance / (default_ramp_dist + decel_dist)
+        scale = target_distance / (default_ramp_dist + decel_dist) if (default_ramp_dist + decel_dist) else 0
         ramp_dist = default_ramp_dist * scale
         decel_dist = decel_dist * scale
         cruise_dist = 0
@@ -51,12 +51,12 @@ def get_phase(dist_travelled, ramp_dist, decel_dist, cruise_dist, total_dist):
         Returns the appropriate phase (Ramp up, Cruise, Ramp down) and the progress for each ramp.
     """
     if dist_travelled < ramp_dist:
-        return "RAMP_UP", (dist_travelled / ramp_dist)
-    elif dist_travelled < ramp_dist + cruise_dist:
+        return "RAMP_UP", (dist_travelled / ramp_dist) if ramp_dist else 1
+    elif dist_travelled < ramp_dist + cruise_dist: 
         return "CRUISE", 1
     else:
         remaining = total_dist - dist_travelled
-        return "RAMP_DOWN", (remaining / decel_dist)
+        return "RAMP_DOWN", (remaining / decel_dist) if decel_dist else 0
  
 def compute_ramp_speed(progress, min_speed, max_speed):
     """
@@ -65,6 +65,31 @@ def compute_ramp_speed(progress, min_speed, max_speed):
     x = progress * 5 - 2.5
     sigmoid = 1 / (1 + math.exp(-x))
     return (max_speed - min_speed) * sigmoid + min_speed
+
+def _motor_duty(target_speed, motor, direction, prev_err, filt_deriv, dt,
+                 kff, kp, kd, deriv_alpha):
+    """
+    One PD+feedforward step for a single motor.
+    target_speed and motor.speed() are both deg/s, direction-normalised so
+    'forward' (or 'this motor's intended direction') is always positive.
+ 
+    prev_err=None means "first sample" -> derivative term is skipped instead
+    of being computed against an assumed previous error of 0, which would
+    otherwise produce a large spike on the very first loop iteration.
+ 
+    Returns (duty, err, filt_deriv) -- feed err/filt_deriv back in as
+    prev_err/filt_deriv next call.
+    """
+    speed = direction * motor.speed()
+    err = target_speed - speed
+    if prev_err is None:
+        deriv = 0
+    else:
+        deriv = (err - prev_err) / dt * 1000  # deg/s^2
+    filt_deriv = deriv_alpha * deriv + (1 - deriv_alpha) * filt_deriv
+    duty = kff * target_speed + kp * err + kd * filt_deriv
+    return duty, err, filt_deriv
+
  
 def move_distance(target_distance, default_min_speed=20, default_max_speed=1000, default_ramp_dist=100):
     """
@@ -94,7 +119,7 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
     timer = StopWatch()
     prev_time = timer.time()
  
-    prev_err_A, prev_err_B = 0, 0
+    prev_err_A =  prev_err_B = None
     filt_deriv_A, filt_deriv_B = 0, 0
     prev_sync_error = 0
     filt_sync_deriv = 0
@@ -124,8 +149,16 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
         err_A = target_speed - speed_A
         err_B = target_speed - speed_B
  
-        deriv_A = (err_A - prev_err_A) / dt * 1000  # deg/s^2
-        deriv_B = (err_B - prev_err_B) / dt * 1000
+        # deg/s^2
+        if prev_err_A is None:
+            deriv_A = 0
+        else:
+            deriv_A = (err_A - prev_err_A) / dt * 1000  # deg/s^2
+
+        if prev_err_B is None:
+            deriv_B = 0
+        else:
+            deriv_B = (err_B - prev_err_B) / dt * 1000
         filt_deriv_A = deriv_alpha * deriv_A + (1 - deriv_alpha) * filt_deriv_A
         filt_deriv_B = deriv_alpha * deriv_B + (1 - deriv_alpha) * filt_deriv_B
         prev_err_A, prev_err_B = err_A, err_B

@@ -40,6 +40,7 @@ def wait_for_new_touch_press():
 
     ev3.speaker.beep()
     print("Touch button on Port 4 pressed")
+    
 
 if ev3.battery.voltage() >= 7000:
     try:

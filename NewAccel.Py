@@ -104,7 +104,7 @@ def _motor_duty(target_speed, motor, direction, prev_err, filt_deriv, dt,
     return duty, err, filt_deriv
 
  
-def move_distance(target_distance, default_min_speed=20, default_max_speed=1000, default_ramp_dist=100):
+def move_distance(target_distance, default_min_speed=160, default_max_speed=1000, default_ramp_dist=80):
     """
     Moves the robot forwards using direct duty-cycle (dc) control instead of motor.run().
 
@@ -114,32 +114,48 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
        This is the part that replaces Pybricks' internal run() PID with your own,faster, robot-specific one.
     3. Sync loop (upgraded from P-only to PD): keeps motorA/motorB travelling the same distance by trimming duty based on their distance error and its derivative.
     """
-    # kff = 0.09        # %/(deg/s)   -- TUNE FIRST, on a full battery
-    # kp_speed = 0.05     # %/(deg/s) of speed error
-    # kd_speed = 0.004    # %/(deg/s^2) of speed-error rate of change
-    # kp_sync = 0.01
-    # kd_sync = 0.002
-    # deriv_alpha = 0.5
 
     # ---------- SPEED CONTROLLER ----------
 
     # Feedforward
-    kS = 12.0       # friction feedforward - leave at 0 for now
-    kV = 0.08      # speed feedforward
-    kA = 0.0       # acceleration feedforward - tune later
+    kS = 28.0       # friction feedforward - leave at 0 for now
+    kV = 0.10      # speed feedforward
+    #kA = 0.003 :SOB: it was nice while you lasted      # acceleration feedforward - tune later
+    kA_accel = 0.004
+    kA_decel = 0.003
+
+    MAX_TARGET_ACCEL = 3000
+
+    MAX_CRUISE_SPEED = 620
 
     # PID feedback
     kp_speed = 0.05
     ki_speed = 0.8
     kd_speed = 0.0     # disable D while tuning PI first
 
-    # Integral is allowed to contribute at most +/-30% duty
-    I_DUTY_LIMIT = 30
+    # Integral settings
+    I_DUTY_LIMIT = 15
+    I_ACTIVE_ERROR = 100
+
+    # ---------- FINAL POSITION SETTLING ----------
+
+    SETTLE_ZONE = 8.0        # mm from destination to enter position control
+    SETTLE_TOL = 1.0       # acceptable final position error, mm
+
+    SETTLE_KP = 20.0          # target deg/s per mm of position error
+    SETTLE_MAX_SPEED = 160    # maximum correction speed, deg/s
+    SETTLE_MIN_SPEED = 50
+
+    SETTLE_KS = 36.0
+
+    SETTLE_STABLE_CYCLES = 3  # must stay inside tolerance this many loops
 
 
     # ---------- WHEEL SYNC CONTROLLER ----------
-    kp_sync = 0.01
-    kd_sync = 0.002
+    kp_sync = 0.8
+    kd_sync = 0.01
+
+    MAX_SYNC_CORRECTION = 6.0
 
     deriv_alpha = 0.5
 
@@ -148,8 +164,17 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
     
     ramp_dist, decel_dist, cruise_dist, max_speed = dist_planning(abs(target_distance), default_max_speed, default_ramp_dist)
  
-    motorA.reset_angle(0)
-    motorB.reset_angle(0)
+    # motorA.reset_angle(0)
+    # motorB.reset_angle(0)
+
+    max_speed = min(max_speed, MAX_CRUISE_SPEED)
+
+    start_angle_A = motorA.angle()
+    start_angle_B = motorB.angle()
+
+    first_move_A = None
+    first_move_B = None
+    first_move_printed = False
  
     direction = 1 if target_distance > 0 else -1
     target_distance = abs(target_distance)
@@ -170,62 +195,178 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
     integral_B = 0
 
     # Used later for acceleration feedforward
-    prev_target_speed = None
+    prev_target_speed = 0.0
 
     prev_sync_error = 0
     filt_sync_deriv = 0
  
     avg_dist = 0
 
+        
+    # Final position controller state
+    settling = False
+    settled_cycles = 0
+
     last_print = 0
     print("moving")
-    while avg_dist < target_distance:
+    while True: # avg_dist < target_distance this is to let the robot correct itself if it overshoots the target distance
         now = timer.time()
         dt = max(now - prev_time, 1)  # ms; guard against divide-by-zero on a fast tick
         prev_time = now
         dt_s = dt / 1000.0 #seconds
  
         # Distances travelled, normalised so "forward" is always positive regardless of direction.
-        dist_A = angle_to_dist(direction * motorA.angle())
-        dist_B = angle_to_dist(direction * motorB.angle())
+        angle_A = motorA.angle() - start_angle_A
+        angle_B = motorB.angle() - start_angle_B
+
+        # Measure actual startup timing from encoder movement.
+        if first_move_A is None and abs(angle_A) >= 1:
+            first_move_A = now
+
+        if first_move_B is None and abs(angle_B) >= 1:
+            first_move_B = now
+
+        if (
+            not first_move_printed
+            and first_move_A is not None
+            and first_move_B is not None
+        ):
+            print(
+                "START A:", first_move_A,
+                "B:", first_move_B,
+                "difference:", first_move_A - first_move_B,
+                "ms"
+            )
+
+            first_move_printed = True
+
+        dist_A = angle_to_dist(direction * angle_A)
+        dist_B = angle_to_dist(direction * angle_B)
+
+        
         avg_dist = (dist_A + dist_B) / 2
  
-        phase, progress = get_phase(avg_dist, ramp_dist, decel_dist, cruise_dist, target_distance)
-        if phase == "CRUISE":
-            target_speed = max_speed
-        elif phase == "RAMP_UP":
-            target_speed = compute_ramp_speed(
-            progress,
-            default_min_speed,
-            max_speed
-        )
-        else:  # RAMP_DOWN
+        # Signed position error.
+        # Positive = still before target.
+        # Negative = overshot target.
+        position_error = target_distance - avg_dist
 
-            target_speed = compute_ramp_speed(
-                progress,
-                0,
-                max_speed
-        )
+
+        # Once we enter the settle zone, stay in settle mode.
+        if not settling and position_error <= SETTLE_ZONE:
+            settling = True
+
+            # Clear velocity-controller integral history
+            # before precision positioning.
+            integral_A = 0
+            integral_B = 0
+
+
+        if settling:
+
+            phase = "SETTLE"
+
+            # We are close enough to the requested position.
+            if abs(position_error) <= SETTLE_TOL:
+
+                motorA.brake()
+                motorB.brake()
+
+                integral_A = 0
+                integral_B = 0
+
+                settled_cycles += 1
+
+                if settled_cycles >= SETTLE_STABLE_CYCLES:
+                    break
+
+                wait(5)
+                continue
+
+
+            # Not inside tolerance anymore.
+            settled_cycles = 0
+
+
+            # Convert position error into signed target speed.
+            #
+            # Before target  -> positive target speed
+            # Past target    -> negative target speed
+            target_speed = SETTLE_KP * position_error
+
+            target_speed = clamp(
+                target_speed,
+                -SETTLE_MAX_SPEED,
+                SETTLE_MAX_SPEED
+            )
+
+            # 20 ms motor.speed() resolution is roughly 50 deg/s,
+            # so don't ask the velocity loop to regulate below that.
+            if 0 < target_speed < SETTLE_MIN_SPEED:
+                target_speed = SETTLE_MIN_SPEED
+
+            elif -SETTLE_MIN_SPEED < target_speed < 0:
+                target_speed = -SETTLE_MIN_SPEED
+
+
+        else:
+
+            # Normal distance-based motion profile
+            phase, progress = get_phase(
+                avg_dist,
+                ramp_dist,
+                decel_dist,
+                cruise_dist,
+                target_distance
+            )
+
+            if phase == "CRUISE":
+
+                target_speed = max_speed
+
+            elif phase == "RAMP_UP":
+
+                target_speed = compute_ramp_speed(
+                    progress,
+                    default_min_speed,
+                    max_speed
+                )
+
+            else:  # RAMP_DOWN
+
+                target_speed = compute_ramp_speed(
+                    progress,
+                    0,
+                    max_speed
+                )
 
         # ---- target acceleration ----
         # This currently doesn't affect duty because kA = 0.
         # We're calculating it now so the controller is ready for kA later.
-        if prev_target_speed is None:
-            target_accel = 0
-        else:
-            target_accel = (target_speed - prev_target_speed) / dt_s
+        target_accel = (target_speed - prev_target_speed) / dt_s
 
+        target_accel = clamp(
+            target_accel,
+            -MAX_TARGET_ACCEL,
+            MAX_TARGET_ACCEL
+)
         
 
         prev_target_speed = target_speed
  
         # Faster model-estimated speed for custom control loops
-        _, estimated_speed_A, _, _ = motorA.model.state()
-        _, estimated_speed_B, _, _ = motorB.model.state()
+        # _, estimated_speed_A, _, _ = motorA.model.state()
+        # _, estimated_speed_B, _, _ = motorB.model.state()
 
-        speed_A = direction * estimated_speed_A
-        speed_B = direction * estimated_speed_B
- 
+        # speed_A = direction * estimated_speed_A
+        # speed_B = direction * estimated_speed_B
+
+        # Real measured motor speed.
+        # A 50 ms window is slower than model.state(), but gives us
+        # trustworthy feedback while tuning the physical drivetrain.
+        speed_A = direction * motorA.speed(window=20)
+        speed_B = direction * motorB.speed(window=20)
+
         err_A = target_speed - speed_A
         err_B = target_speed - speed_B
  
@@ -246,14 +387,42 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
         prev_err_A, prev_err_B = err_A, err_B
 
         # ---- integral / accumulated speed error ----
-        if ki_speed != 0:
+        if phase == "SETTLE":
 
-            # Convert our desired maximum I contribution
-            # from duty % into the equivalent integral limit.
+            # Don't use velocity integral during final position settling.
+            integral_A = 0
+            integral_B = 0
+
+        elif ki_speed != 0:
+
+            # Maximum stored integral based on how much
+            # duty we allow the I term to contribute.
             integral_limit = I_DUTY_LIMIT / ki_speed
 
-            integral_A += err_A * dt_s
-            integral_B += err_B * dt_s
+            # Only integrate relatively small persistent errors.
+            #
+            # If the error is huge because the robot is accelerating,
+            # we DON'T want the integral building up aggressively.
+            #
+            # Large acceleration errors should eventually be handled
+            # by kA, while P handles the immediate error.
+
+
+            # Accumulate I normally when the error is reasonably small.
+            #
+            # BUT always allow the integral to unwind when the error
+            # is opposite to the existing integral.
+            if (
+                abs(err_A) < I_ACTIVE_ERROR
+                or err_A * integral_A < 0
+            ):
+                integral_A += err_A * dt_s
+
+            if (
+                abs(err_B) < I_ACTIVE_ERROR
+                or err_B * integral_B < 0
+            ):
+                integral_B += err_B * dt_s
 
             # Anti-windup
             integral_A = clamp(
@@ -269,35 +438,101 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
             )
 
 
-        # Integral duty contribution
+        # Convert stored integral into duty %
         i_term_A = ki_speed * integral_A
         i_term_B = ki_speed * integral_B
 
  
         # ---- feedforward ----
 
-        feedforward = (
-            kS
-            + kV * target_speed
-            + kA * target_accel
+        if target_accel >= 0:
+            accel_ff = kA_accel * target_accel
+        else:
+            accel_ff = kA_decel * target_accel
+
+        base_ff = (
+            kV * target_speed
+            + accel_ff
         )
 
 
+        # During ramp-down / position settling:
+        # only apply kS if the motor is failing to reach
+        # the requested speed.
+        if phase == "SETTLE":
+
+            # During precision positioning, always provide enough
+            # duty to overcome drivetrain friction.
+                    
+            if target_speed > 0:
+                friction_ff_A = SETTLE_KS
+                friction_ff_B = SETTLE_KS
+
+            elif target_speed < 0:
+                friction_ff_A = -SETTLE_KS
+                friction_ff_B = -SETTLE_KS
+
+            else:
+                friction_ff_A = 0
+                friction_ff_B = 0
+
+        elif phase == "RAMP_DOWN":
+
+            # During normal deceleration, only compensate friction
+            # if a motor is going slower than requested.
+            if target_speed > 0:
+                friction_ff_A = kS if speed_A < target_speed else 0
+                friction_ff_B = kS if speed_B < target_speed else 0
+
+            elif target_speed < 0:
+                friction_ff_A = -kS if speed_A > target_speed else 0
+                friction_ff_B = -kS if speed_B > target_speed else 0
+
+            else:
+                friction_ff_A = 0
+                friction_ff_B = 0
+
+        else:
+
+            # Normal ramp-up / cruise
+            friction_ff_A = kS
+            friction_ff_B = kS
+
+
+        feedforward_A = base_ff + friction_ff_A
+        feedforward_B = base_ff + friction_ff_B
         # ---- feedforward + PID feedback ----
 
         duty_A = (
-            feedforward
+            feedforward_A
             + kp_speed * err_A
             + i_term_A
             + kd_speed * filt_deriv_A
         )
 
         duty_B = (
-            feedforward
+            feedforward_B
             + kp_speed * err_B
             + i_term_B
             + kd_speed * filt_deriv_B
         )
+
+        # Reserve 6% duty for wheel-sync correction.
+        # Otherwise both motors can saturate at 100% and the
+        # sync controller loses all steering authority.
+        SYNC_DUTY_LIMIT = 100 - MAX_SYNC_CORRECTION
+
+        duty_A = clamp(
+            duty_A,
+            -SYNC_DUTY_LIMIT,
+            SYNC_DUTY_LIMIT
+        )
+
+        duty_B = clamp(
+            duty_B,
+            -SYNC_DUTY_LIMIT,
+            SYNC_DUTY_LIMIT
+)
  
         # ---- wheel sync PD (was P-only) ----
         sync_error = dist_A - dist_B
@@ -305,7 +540,16 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
         filt_sync_deriv = deriv_alpha * sync_deriv + (1 - deriv_alpha) * filt_sync_deriv
         prev_sync_error = sync_error
  
-        sync_correction = kp_sync * sync_error + kd_sync * filt_sync_deriv
+        sync_correction = (
+            kp_sync * sync_error
+            + kd_sync * filt_sync_deriv
+        )
+
+        sync_correction = clamp(
+            sync_correction,
+            -MAX_SYNC_CORRECTION,
+            MAX_SYNC_CORRECTION
+        )
  
         duty_A -= sync_correction
         duty_B += sync_correction
@@ -317,13 +561,17 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
 
         if now - last_print >= 50:
             print(
+                "phase:", phase,
+                "error:", round(position_error, 2),
                 "target:", round(target_speed),
                 "speed:", round(speed_A), round(speed_B),
+                "sync:", round(sync_error, 2),
+                "corr:", round(sync_correction, 2),
                 "duty:", round(duty_A, 1), round(duty_B, 1),
                 "I:", round(i_term_A, 1), round(i_term_B, 1)
             )
             last_print = now
- 
+
         wait(5)
  
     # brake() rather than stop(): with dc()-style control you generally want a firm,
@@ -332,3 +580,5 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
     motorB.brake()
     ev3.speaker.beep()
     wait(beep_time)
+
+

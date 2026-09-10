@@ -60,11 +60,24 @@ def get_phase(dist_travelled, ramp_dist, decel_dist, cruise_dist, total_dist):
  
 def compute_ramp_speed(progress, min_speed, max_speed):
     """
-        Sigmoid-shaped speed target based on profile progress (unchanged from your original).
+    Sigmoid ramp normalized so:
+        progress = 0 -> exactly min_speed
+        progress = 1 -> exactly max_speed
     """
+    progress = clamp(progress, 0, 1)
+
     x = progress * 5 - 2.5
     sigmoid = 1 / (1 + math.exp(-x))
-    return (max_speed - min_speed) * sigmoid + min_speed
+
+    sigmoid_min = 1 / (1 + math.exp(2.5))
+    sigmoid_max = 1 / (1 + math.exp(-2.5))
+
+    normalized = (
+        (sigmoid - sigmoid_min)
+        / (sigmoid_max - sigmoid_min)
+    )
+
+    return min_speed + (max_speed - min_speed) * normalized
 
 def _motor_duty(target_speed, motor, direction, prev_err, filt_deriv, dt,
                  kff, kp, kd, deriv_alpha):
@@ -101,12 +114,37 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
        This is the part that replaces Pybricks' internal run() PID with your own,faster, robot-specific one.
     3. Sync loop (upgraded from P-only to PD): keeps motorA/motorB travelling the same distance by trimming duty based on their distance error and its derivative.
     """
-    kff = 0.12         # %/(deg/s)   -- TUNE FIRST, on a full battery
-    kp_speed = 0.05     # %/(deg/s) of speed error
-    kd_speed = 0.004    # %/(deg/s^2) of speed-error rate of change
+    # kff = 0.09        # %/(deg/s)   -- TUNE FIRST, on a full battery
+    # kp_speed = 0.05     # %/(deg/s) of speed error
+    # kd_speed = 0.004    # %/(deg/s^2) of speed-error rate of change
+    # kp_sync = 0.01
+    # kd_sync = 0.002
+    # deriv_alpha = 0.5
+
+    # ---------- SPEED CONTROLLER ----------
+
+    # Feedforward
+    kS = 12.0       # friction feedforward - leave at 0 for now
+    kV = 0.08      # speed feedforward
+    kA = 0.0       # acceleration feedforward - tune later
+
+    # PID feedback
+    kp_speed = 0.05
+    ki_speed = 0.8
+    kd_speed = 0.0     # disable D while tuning PI first
+
+    # Integral is allowed to contribute at most +/-30% duty
+    I_DUTY_LIMIT = 30
+
+
+    # ---------- WHEEL SYNC CONTROLLER ----------
     kp_sync = 0.01
     kd_sync = 0.002
+
     deriv_alpha = 0.5
+
+
+
     
     ramp_dist, decel_dist, cruise_dist, max_speed = dist_planning(abs(target_distance), default_max_speed, default_ramp_dist)
  
@@ -119,17 +157,33 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
     timer = StopWatch()
     prev_time = timer.time()
  
-    prev_err_A =  prev_err_B = None
+    # prev_err_A =  prev_err_B = None
+    # filt_deriv_A, filt_deriv_B = 0, 0
+    # prev_sync_error = 0
+    # filt_sync_deriv = 0
+
+    prev_err_A = prev_err_B = None
     filt_deriv_A, filt_deriv_B = 0, 0
+
+    # Integral state for each motor
+    integral_A = 0
+    integral_B = 0
+
+    # Used later for acceleration feedforward
+    prev_target_speed = None
+
     prev_sync_error = 0
     filt_sync_deriv = 0
  
     avg_dist = 0
+
+    last_print = 0
     print("moving")
     while avg_dist < target_distance:
         now = timer.time()
         dt = max(now - prev_time, 1)  # ms; guard against divide-by-zero on a fast tick
         prev_time = now
+        dt_s = dt / 1000.0 #seconds
  
         # Distances travelled, normalised so "forward" is always positive regardless of direction.
         dist_A = angle_to_dist(direction * motorA.angle())
@@ -139,12 +193,38 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
         phase, progress = get_phase(avg_dist, ramp_dist, decel_dist, cruise_dist, target_distance)
         if phase == "CRUISE":
             target_speed = max_speed
+        elif phase == "RAMP_UP":
+            target_speed = compute_ramp_speed(
+            progress,
+            default_min_speed,
+            max_speed
+        )
+        else:  # RAMP_DOWN
+
+            target_speed = compute_ramp_speed(
+                progress,
+                0,
+                max_speed
+        )
+
+        # ---- target acceleration ----
+        # This currently doesn't affect duty because kA = 0.
+        # We're calculating it now so the controller is ready for kA later.
+        if prev_target_speed is None:
+            target_accel = 0
         else:
-            target_speed = compute_ramp_speed(progress, default_min_speed, max_speed)
+            target_accel = (target_speed - prev_target_speed) / dt_s
+
+        
+
+        prev_target_speed = target_speed
  
-        # ---- per-motor speed PD + feedforward -> duty ----
-        speed_A = direction * motorA.speed()
-        speed_B = direction * motorB.speed()
+        # Faster model-estimated speed for custom control loops
+        _, estimated_speed_A, _, _ = motorA.model.state()
+        _, estimated_speed_B, _, _ = motorB.model.state()
+
+        speed_A = direction * estimated_speed_A
+        speed_B = direction * estimated_speed_B
  
         err_A = target_speed - speed_A
         err_B = target_speed - speed_B
@@ -159,12 +239,65 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
             deriv_B = 0
         else:
             deriv_B = (err_B - prev_err_B) / dt * 1000
+
         filt_deriv_A = deriv_alpha * deriv_A + (1 - deriv_alpha) * filt_deriv_A
         filt_deriv_B = deriv_alpha * deriv_B + (1 - deriv_alpha) * filt_deriv_B
+
         prev_err_A, prev_err_B = err_A, err_B
+
+        # ---- integral / accumulated speed error ----
+        if ki_speed != 0:
+
+            # Convert our desired maximum I contribution
+            # from duty % into the equivalent integral limit.
+            integral_limit = I_DUTY_LIMIT / ki_speed
+
+            integral_A += err_A * dt_s
+            integral_B += err_B * dt_s
+
+            # Anti-windup
+            integral_A = clamp(
+                integral_A,
+                -integral_limit,
+                integral_limit
+            )
+
+            integral_B = clamp(
+                integral_B,
+                -integral_limit,
+                integral_limit
+            )
+
+
+        # Integral duty contribution
+        i_term_A = ki_speed * integral_A
+        i_term_B = ki_speed * integral_B
+
  
-        duty_A = kff * target_speed + kp_speed * err_A + kd_speed * filt_deriv_A
-        duty_B = kff * target_speed + kp_speed * err_B + kd_speed * filt_deriv_B
+        # ---- feedforward ----
+
+        feedforward = (
+            kS
+            + kV * target_speed
+            + kA * target_accel
+        )
+
+
+        # ---- feedforward + PID feedback ----
+
+        duty_A = (
+            feedforward
+            + kp_speed * err_A
+            + i_term_A
+            + kd_speed * filt_deriv_A
+        )
+
+        duty_B = (
+            feedforward
+            + kp_speed * err_B
+            + i_term_B
+            + kd_speed * filt_deriv_B
+        )
  
         # ---- wheel sync PD (was P-only) ----
         sync_error = dist_A - dist_B
@@ -176,10 +309,20 @@ def move_distance(target_distance, default_min_speed=20, default_max_speed=1000,
  
         duty_A -= sync_correction
         duty_B += sync_correction
-        print(duty_A, duty_B)
+
+        
 
         motorA.dc(direction * clamp(duty_A, -100, 100))
         motorB.dc(direction * clamp(duty_B, -100, 100))
+
+        if now - last_print >= 50:
+            print(
+                "target:", round(target_speed),
+                "speed:", round(speed_A), round(speed_B),
+                "duty:", round(duty_A, 1), round(duty_B, 1),
+                "I:", round(i_term_A, 1), round(i_term_B, 1)
+            )
+            last_print = now
  
         wait(5)
  

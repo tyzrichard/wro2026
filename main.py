@@ -40,11 +40,11 @@ def wait_for_new_touch_press():
     while not touch_button_pressed():
         wait(10)
 
-    ev3.speaker.beep()
+    #ev3.speaker.beep()
     print("Touch button on Port 4 pressed")
     
 
-if ev3.battery.voltage() >= 7000:
+if ev3.battery.voltage() >= 6900:
     try:
         # Testing: Print White Values of all 3 color sensors
         # while True:
@@ -57,11 +57,13 @@ if ev3.battery.voltage() >= 7000:
         
         for i in range(10):
             wait_for_new_touch_press()
-            nacc.move_distance(200)
+            wait(500)
+            new.move_distance(500)
         # wait_for_new_touch_press()
-        ev3.speaker.beep(1000, 700)
-        wait_for_new_touch_press()
-        print(logger.dump_log())
+        #ev3.speaker.beep(1000, 700)
+        while True:
+            wait_for_new_touch_press()
+            print(logger.dump_log())
 
         # 0. Setup
         # ev3.speaker.beep()
@@ -173,5 +175,10 @@ if ev3.battery.voltage() >= 7000:
         # # new.move_distance(200, default_ramp_dist=50)
     
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.log_print(f"An error occurred: {e}")
+
+        while True:
+            wait_for_new_touch_press()
+            print(logger.dump_log())
+        
         raise

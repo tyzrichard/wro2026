@@ -125,7 +125,7 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
     kV_B = 0.100 #0.0965
     #kA = 0.003 :SOB: it was nice while you lasted      # acceleration feedforward - tune later
     kA_accel = 0.003
-    kA_decel = 0.003 
+    kA_decel = 0.003
 
     MAX_TARGET_ACCEL = 3000
 
@@ -136,14 +136,16 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
     # PID feedback
     kp_speed = 0.05
     ki_speed = 0.8
-    kd_speed = 0.0     # disable D while tuning PI first
+    kd_speed = 0.0    # disable D while tuning PI first
 
     # Integral settings
     I_DUTY_LIMIT = 15
+
     I_ACTIVE_ERROR = 100
+    I_ACTIVE_ERROR_DECEL = 100
 
     # ---------- FINAL POSITION SETTLING ----------
-    DISTANCE_SCALE = 1.03
+    DISTANCE_SCALE = 1.00
     TURN_SCALE = 1.0
     SETTLE_ZONE = 18.0        # mm from destination to enter position control
     SETTLE_TOL = 1.0       # acceptable final position error, mm
@@ -153,15 +155,26 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
     SETTLE_MIN_SPEED = 50
 
     SETTLE_KS = 40.0
-
     SETTLE_STABLE_CYCLES = 3  # must stay inside tolerance this many loops
+
+    START_KS = 36.0
+    START_KS_DIST = 12.0
 
 
     # ---------- WHEEL SYNC CONTROLLER ----------
-    kp_sync = 1.5
-    kd_sync = 0.02
+    kp_sync = 1.8
+    ki_sync = 0.4
+    kd_sync = 0.08
 
-    MAX_SYNC_CORRECTION = 8.0
+    KD_SYNC_START = 0.02
+    KD_SYNC_SETTLE = 0.02
+
+    MAX_SYNC_CORRECTION = 15.0
+    SYNC_DUTY_LIMIT = 90.0
+
+    # KP_SYNC_START = 2.5
+    START_SYNC_DIST = 20.0
+    SYNC_I_LIMIT = 3.0   # integral may contribute max ±3% duty
 
     deriv_alpha = 0.5
     
@@ -233,8 +246,9 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
     # Used later for acceleration feedforward
     prev_target_speed = 0.0
 
-    prev_sync_error = 0
+    # prev_sync_error = 0
     filt_sync_deriv = 0
+    sync_integral = 0.0
  
     avg_dist = 0
 
@@ -278,6 +292,8 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
 
         dist_A = angle_to_dist(direction_A * angle_A)
         dist_B = angle_to_dist(direction_B * angle_B)
+
+        sync_error = dist_A - dist_B
 
         
         avg_dist = (dist_A + dist_B) / 2
@@ -387,8 +403,8 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
         # Real measured motor speed.
         # A 50 ms window is slower than model.state(), but gives us
         # trustworthy feedback while tuning the physical drivetrain.
-        speed_A = direction_A * motorA.speed(window=20)
-        speed_B = direction_B * motorB.speed(window=20)
+        speed_A = direction_A * motorA.speed()
+        speed_B = direction_B * motorB.speed()
         avg_speed = (speed_A + speed_B) / 2
 
         if phase == "SETTLE":
@@ -412,8 +428,12 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
     
         prev_target_speed = target_speed
 
-        err_A = target_speed - speed_A
-        err_B = target_speed - speed_B
+        # Common forward-speed controller.
+        # It controls overall robot speed, NOT left/right balance.
+        common_speed_error = target_speed - avg_speed
+
+        err_A = common_speed_error
+        err_B = common_speed_error
  
         # deg/s^2
         if prev_err_A is None:
@@ -457,14 +477,19 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
             #
             # BUT always allow the integral to unwind when the error
             # is opposite to the existing integral.
+            if phase == "RAMP_DOWN":
+                active_error = I_ACTIVE_ERROR_DECEL
+            else:
+                active_error = I_ACTIVE_ERROR
+
             if (
-                abs(err_A) < I_ACTIVE_ERROR
+                abs(err_A) < active_error
                 or err_A * integral_A < 0
             ):
                 integral_A += err_A * dt_s
 
             if (
-                abs(err_B) < I_ACTIVE_ERROR
+                abs(err_B) < active_error
                 or err_B * integral_B < 0
             ):
                 integral_B += err_B * dt_s
@@ -511,27 +536,26 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
         # the requested speed.
         if phase == "SETTLE":
 
-            # During precision positioning, always provide enough
-            # duty to overcome drivetrain friction.
-                    
-            if target_speed > 0:
+            speed_deficit = abs(target_speed) - abs(avg_speed)
 
-                if 0 <= avg_speed < target_speed:
-                    friction_ff = SETTLE_KS
-                else:
-                    friction_ff = 0
+            settle_ff_scale = clamp(
+                speed_deficit / SETTLE_MIN_SPEED,
+                0.0,
+                1.0
+            )
+
+            if target_speed > 0:
+                friction_ff = SETTLE_KS * settle_ff_scale
 
             elif target_speed < 0:
-
-                if target_speed < avg_speed <= 0:
-                    friction_ff = -SETTLE_KS
-                else:
-                    friction_ff = 0
+                friction_ff = -SETTLE_KS * settle_ff_scale
 
             else:
                 friction_ff = 0
 
+
         elif phase == "RAMP_DOWN":
+
             current_kS = max(
                 kS * progress,
                 RAMP_DOWN_KS_MIN
@@ -546,9 +570,13 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
             else:
                 friction_ff = 0
 
+
         else:
             # Normal ramp-up / cruise
-            friction_ff = kS
+            if phase == "RAMP_UP" and avg_dist < START_KS_DIST:
+                friction_ff = START_KS
+            else:
+                friction_ff = kS
 
 
         feedforward_A = base_ff_A + friction_ff
@@ -572,7 +600,8 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
         # Reserve 6% duty for wheel-sync correction.
         # Otherwise both motors can saturate at 100% and the
         # sync controller loses all steering authority.
-        SYNC_DUTY_LIMIT = 100 - MAX_SYNC_CORRECTION
+        # SYNC_DUTY_LIMIT = 100 - MAX_SYNC_CORRECTION
+
 
         duty_A = clamp(
             duty_A,
@@ -587,14 +616,41 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
 )
  
         # ---- wheel sync PD (was P-only) ----
-        sync_error = dist_A - dist_B
-        sync_deriv = (sync_error - prev_sync_error) / dt * 1000
+        # Derivative of distance difference = wheel velocity difference.
+        # speed_A/B are deg/s, angle_to_dist converts this to mm/s.
+        sync_deriv = angle_to_dist(speed_A - speed_B)
         filt_sync_deriv = deriv_alpha * sync_deriv + (1 - deriv_alpha) * filt_sync_deriv
-        prev_sync_error = sync_error
+
+        # prev_sync_error = sync_error
  
+        # Accumulate persistent left/right mismatch.
+        sync_integral += sync_error * dt_s
+
+        # Limit integral contribution to ±3% duty.
+        if ki_sync != 0:
+            sync_integral = clamp(
+                sync_integral,
+                -SYNC_I_LIMIT / ki_sync,
+                SYNC_I_LIMIT / ki_sync
+            )
+
+        sync_i_term = ki_sync * sync_integral
+
+        sync_p_error = sync_error * abs(sync_error)
+
+        if phase == "SETTLE":
+            current_kd_sync = KD_SYNC_SETTLE
+
+        elif phase == "RAMP_UP" and avg_dist < START_SYNC_DIST:
+            current_kd_sync = KD_SYNC_START
+
+        else:
+            current_kd_sync = kd_sync
+
         sync_correction = (
-            kp_sync * sync_error
-            + kd_sync * filt_sync_deriv
+            kp_sync * sync_p_error
+            + sync_i_term
+            + current_kd_sync * filt_sync_deriv
         )
 
         sync_correction = clamp(
@@ -602,9 +658,24 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
             -MAX_SYNC_CORRECTION,
             MAX_SYNC_CORRECTION
         )
- 
+
         duty_A -= sync_correction
         duty_B += sync_correction
+
+
+        # if phase == "RAMP_DOWN":
+        #     current_kd_sync = KD_SYNC_DECEL
+        # else:
+        #     current_kd_sync = kd_sync
+
+        # sync_correction = (
+        #     kp_sync * sync_error
+        #     + sync_i_term
+        #     + current_kd_sync * filt_sync_deriv
+        # )
+
+        # duty_A -= sync_correction
+        # duty_B += sync_correction
 
         
 
@@ -619,6 +690,7 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
                 "speed:", round(speed_A), round(speed_B),
                 "sync:", round(sync_error, 2),
                 "corr:", round(sync_correction, 2),
+                "syncI:", round(sync_i_term, 2),
                 "duty:", round(duty_A, 1), round(duty_B, 1),
                 "I:", round(i_term_A, 1), round(i_term_B, 1)
             )
@@ -630,9 +702,14 @@ def move_distance(target_distance=0, default_min_speed=160, default_max_speed=10
     # repeatable stop rather than a coast that depends on residual momentum/friction.
     motorA.brake()
     motorB.brake()
-    ev3.speaker.beep()
+
+
+    # ev3.speaker.beep()
+
+
     wait(beep_time)
 
 
-def turn_degrees(turn_angle, default_min_speed=160, default_max_speed=1000, default_ramp_dist=80):
-    move_distance(target_distance=0, default_min_speed=default_min_speed, default_max_speed=default_max_speed, default_ramp_dist=default_ramp_dist, turn_angle=turn_angle):
+# def turn_degrees(turn_angle, default_min_speed=160, default_max_speed=1000, default_ramp_dist=80):
+#     move_distance(target_distance=0, default_min_speed=default_min_speed, default_max_speed=default_max_speed, default_ramp_dist=default_ramp_dist, turn_angle=turn_angle):
+

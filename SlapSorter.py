@@ -5,6 +5,7 @@ from pybricks.parameters import Stop, Direction, Button, Color
 from pybricks.tools import wait, StopWatch
 from Hardware import motorA, motorB, motorC, motorD, leftColor, middleColor, rightColor, pushButton
 import Acceleration as acceleration
+import NewAccel as new
 import MiscSetup as misc
 
 acc = acceleration.AccelerationController(Kp=0.9)
@@ -244,12 +245,12 @@ def drop_blocks(target_distance, last_drop_dist=390, drop_interval_dist=75):
     acc.move_distance(last_drop_dist, default_ramp_dist=250)
     for i in range(3):
         slap_slapper()
-        acc.move_distance(-25, default_ramp_dist=50)
-        acc.move_distance(drop_interval_dist, default_ramp_dist=100)
+        new.move_distance(-25, default_ramp_dist=50)
+        new.move_distance(drop_interval_dist, default_ramp_dist=100)
         raise_slapper()
     slap_slapper()
-    acc.move_distance(-25, default_ramp_dist=50)
-    acc.move_distance(100, default_ramp_dist=100)
+    new.move_distance(-25, default_ramp_dist=50)
+    new.move_distance(100, default_ramp_dist=100)
     raise_slapper()
-    acc.move_distance(target_distance - last_drop_dist - 3*drop_interval_dist - 100, default_ramp_dist=100)
+    new.move_distance(target_distance - last_drop_dist - 3*drop_interval_dist - 100, default_ramp_dist=100)
     

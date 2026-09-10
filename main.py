@@ -4,7 +4,7 @@ from pybricks.parameters import Port, Stop, Direction, Button, Color
 from pybricks.tools import wait, StopWatch
 from Hardware import motorA, motorB, motorC, motorD, robot, leftColor, middleColor, rightColor, pushButton
 import Acceleration as acceleration
-import NewAccel as nacc
+import NewAccel as new
 import MiscSetup as misc
 import SlapSorter as slap
 import Logger as logger
@@ -63,24 +63,6 @@ if ev3.battery.voltage() >= 7000:
         wait_for_new_touch_press()
         print(logger.dump_log())
 
-        #while True:
-
-        # for i in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
-        #     motorA.dc(i)
-        #     motorB.dc(i)
-        #     wait(1000)
-
-        #     speed_A = motorA.speed()
-        #     speed_B = motorB.speed()
-
-        #     ratio_A = i / speed_A if speed_A != 0 else "stalled"
-        #     ratio_B = i / speed_B if speed_B != 0 else "stalled"
-
-        #     print("A", i, speed_A, ratio_A)
-        #     print("B", i, speed_B, ratio_B)
-
-        # motorA.brake()
-        # motorB.brake()
         # 0. Setup
         # ev3.speaker.beep()
         # wait_for_new_touch_press()
@@ -90,14 +72,13 @@ if ev3.battery.voltage() >= 7000:
 
         # # 1. Move and get Yellows
         # slap.move("left_block")
-        # acc.move_distance(220, default_ramp_dist=150)
-        # # acc.turn_degrees(-180, mode="arc", turn_radius=138, default_ramp_dist=150)
-        # acc.turn_degrees(-90, mode="spot", default_max_speed=1000, default_ramp_dist=250)
-        # acc.move_distance(270, default_ramp_dist=150)
-        # acc.turn_degrees(-90, mode="spot", default_max_speed=1000, default_ramp_dist=250)
+        # new.move_distance(220)
+        # new.turn_degrees(-90)
+        # new.move_distance(270)
+        # new.turn_degrees(-90)
         # acc.line_following(70, default_ramp_dist=200, sensor=middleColor) 
-        # acc.line_following_blackvar(small=True)
-        # acc.move_distance(-25, default_ramp_dist=130)
+        # acc.line_following_blackvar()
+        # new.move_distance(-25)
         # slap.grab()
         # slap.move("left")
         # slap.release()
@@ -105,7 +86,7 @@ if ev3.battery.voltage() >= 7000:
         # slap.grab()
         # slap.move("mid")
         # slap.release(wait=False)
-        # acc.move_distance(63, default_max_speed=600)
+        # new.move_distance(63)
         # slap.move("left_block")
         # slap.grab()
         # slap.move("right")
@@ -114,7 +95,7 @@ if ev3.battery.voltage() >= 7000:
         # slap.grab()
         # slap.move("left")
         # slap.release(wait=False)
-        # acc.move_distance(64, default_max_speed=600)
+        # new.move_distance(64)
         # slap.move("left_block")
         # slap.grab()
         # slap.move("mid")
@@ -124,15 +105,15 @@ if ev3.battery.voltage() >= 7000:
         # slap.move("right")
         # slap.release()
         # slap.move("left_block")
-        # acc.move_distance(-200)
+        # new.move_distance(-200)
 
         # # 2. Move and get Blues
-        # acc.turn_degrees(90, mode="spot", default_max_speed=1000, default_ramp_dist=225)
-        # acc.move_distance(160, default_ramp_dist=250) 
-        # acc.turn_degrees(-90, mode="spot", default_max_speed=1000, default_ramp_dist=225)
+        # new.turn_degrees(90)
+        # new.move_distance(160) 
+        # new.turn_degrees(-90)
         # acc.line_following(70, default_ramp_dist=200, sensor=middleColor) 
         # acc.line_following_blackvar(small=True)
-        # acc.move_distance(-27, default_max_speed=600, default_ramp_dist=130)
+        # new.move_distance(-27)
         # slap.grab()
         # slap.move("left")
         # slap.release()
@@ -140,7 +121,7 @@ if ev3.battery.voltage() >= 7000:
         # slap.grab()
         # slap.move("mid")
         # slap.release(wait=False)
-        # acc.move_distance(63, default_max_speed=600)
+        # new.move_distance(63)
         # slap.move("left_block")
         # slap.grab()
         # slap.move("right")
@@ -149,7 +130,7 @@ if ev3.battery.voltage() >= 7000:
         # slap.grab()
         # slap.move("left")
         # slap.release(wait=False)
-        # acc.move_distance(64, default_max_speed=600)
+        # new.move_distance(64)
         # slap.move("left_block")
         # slap.grab()
         # slap.move("mid")
@@ -158,45 +139,38 @@ if ev3.battery.voltage() >= 7000:
         # slap.grab()
         # slap.move("right")
         # slap.release()
-        # acc.move_distance(30, default_max_speed=600)
-        # acc.turn_degrees(90, mode="spot", default_ramp_dist=200)
-        # acc.move_distance(360, default_ramp_dist=100)
-        # acc.move_distance(-240, default_ramp_dist=100)
-        # acc.turn_degrees(90, mode="spot", default_ramp_dist=400)
         
-
         # # 3. Throw all blocks onto mosaic and pray it works
-        # # acc.turn_degrees(180, mode="spot")
-        # # acc.turn_degrees(-80, mode="arc", turn_radius=50, default_ramp_dist=160)
-        # # acc.turn_degrees(80, mode="arc", turn_radius=53, default_ramp_dist=160)
-        # acc.move_distance(300, default_ramp_dist=150)
-        # acc.line_following(350, default_ramp_dist=150, sensor=middleColor)
+        # new.move_distance(-200)
+        # new.turn_degrees(150)
+        # new.move_distance(100)
+        # new.turn_degrees(30)
         # acc.line_following_blackvar()
         # slap.drop_blocks(1300)
 
         # # 4. Slap them greens
         # acc.line_following_blackvar()
-        # acc.move_distance(-70,default_ramp_dist=100)
+        # new.move_distance(-70)
         # slap.slap_slapper()
-        # acc.turn_degrees(180, mode="spot", default_ramp_dist=175)
-        # acc.move_distance(330, default_ramp_dist=100)
+        # new.turn_degrees(180)
+        # new.move_distance(330)
         # slap.raise_slapper(wait=True)
-        # acc.move_distance(-170, default_ramp_dist=100)
+        # new.move_distance(-170)
         # slap.slap_slapper()
-        # acc.move_distance(185, default_ramp_dist=100)
+        # new.move_distance(185)
 
         # # 5. ram the rest if got time
         # slap.raise_slapper(wait=True)
-        # acc.move_distance(-400)
+        # new.move_distance(-400)
         # acc.turn_degrees(-90, mode="arc", turn_radius=150, default_ramp_dist=100)
-        # acc.move_distance(270, default_ramp_dist=100)
+        # new.move_distance(270)
         # acc.turn_degrees(90, mode="arc", turn_radius=150, default_ramp_dist=100)
         # # slap.slap_slapper()
-        # acc.move_distance(750,default_ramp_dist=0)
-        # # acc.turn_degrees(25, mode="spot", default_ramp_dist=160)
-        # # acc.move_distance(150, default_ramp_dist=50)
-        # # acc.turn_degrees(-25, mode="spot", default_ramp_dist=160)
-        # # acc.move_distance(200, default_ramp_dist=50)
+        # new.move_distance(750,default_ramp_dist=0)
+        # # new.turn_degrees(25)
+        # # new.move_distance(150)
+        # # new.turn_degrees(-25)
+        # # new.move_distance(200, default_ramp_dist=50)
     
     except Exception as e:
         print(f"An error occurred: {e}")

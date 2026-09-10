@@ -158,7 +158,7 @@ class AccelerationController:
         #     print("Column %: %" % (i+1, colorReads[i]))
         return sensor_log
 
-    def line_following(self, target_distance, default_min_speed=20, default_max_speed=300, default_ramp_dist=300, target_light=162, sensor=None, kp=0.04, kd=0.0000):
+    def line_following(self, target_distance, default_min_speed=20, default_max_speed=300, default_ramp_dist=300, target_light=162, sensor=None, kp=0.04, kd=0.001):
         """
             Very similar to forward movement code, but it does so by following a line.
             The only difference is where it calculates error and subsequent correction from.
@@ -172,7 +172,7 @@ class AccelerationController:
         # avg_dist, ideal_speed = 0, 0
 
         if sensor is None:
-            sensor = middleSensor
+            sensor = middleColor
         color_sensor = sensor # Pass in ColorSensor object
         pd_controller = PDController(kp=kp, kd=kd)
 

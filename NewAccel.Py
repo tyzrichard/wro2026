@@ -105,7 +105,7 @@ def _motor_duty(target_speed, motor, direction, prev_err, filt_deriv, dt,
     return duty, err, filt_deriv
 
  
-def move_distance(target_distance, default_min_speed=160, default_max_speed=1000, default_ramp_dist=80):
+def move_distance(target_distance=0, default_min_speed=160, default_max_speed=1000, default_ramp_dist=80, turn_angle=None):
     """
     Moves the robot forwards using direct duty-cycle (dc) control instead of motor.run().
 
@@ -144,6 +144,7 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
 
     # ---------- FINAL POSITION SETTLING ----------
     DISTANCE_SCALE = 1.03
+    TURN_SCALE = 1.0
     SETTLE_ZONE = 18.0        # mm from destination to enter position control
     SETTLE_TOL = 1.0       # acceptable final position error, mm
 
@@ -163,7 +164,39 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
     MAX_SYNC_CORRECTION = 8.0
 
     deriv_alpha = 0.5
-    target_distance *= DISTANCE_SCALE
+    
+    if turn_angle is not None:
+        # Spot turn.
+        # Distance each wheel must travel around the robot centre.
+        wheel_dist = angle_to_dist(
+            abs(turn_angle) * (w2w_length / (2 * wheel_rad))
+        )
+
+        orientation = 1 if turn_angle > 0 else -1
+
+        target_distance = wheel_dist
+
+        # Wheels move in opposite directions.
+        direction_A = -orientation
+        direction_B = orientation
+
+        is_turn = True
+
+    else:
+        # Normal straight movement.
+        direction = 1 if target_distance > 0 else -1
+
+        direction_A = direction
+        direction_B = direction
+
+        target_distance = abs(target_distance)
+
+        is_turn = False
+    
+    if is_turn:
+        target_distance *= TURN_SCALE
+    else:
+        target_distance *= DISTANCE_SCALE
     
     ramp_dist, decel_dist, cruise_dist, max_speed = dist_planning(abs(target_distance), default_max_speed, default_ramp_dist)
  
@@ -179,8 +212,8 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
     first_move_B = None
     first_move_printed = False
  
-    direction = 1 if target_distance > 0 else -1
-    target_distance = abs(target_distance)
+    # direction = 1 if target_distance > 0 else -1
+    # target_distance = abs(target_distance)
  
     timer = StopWatch()
     prev_time = timer.time()
@@ -243,8 +276,8 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
 
             first_move_printed = True
 
-        dist_A = angle_to_dist(direction * angle_A)
-        dist_B = angle_to_dist(direction * angle_B)
+        dist_A = angle_to_dist(direction_A * angle_A)
+        dist_B = angle_to_dist(direction_B * angle_B)
 
         
         avg_dist = (dist_A + dist_B) / 2
@@ -354,8 +387,8 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
         # Real measured motor speed.
         # A 50 ms window is slower than model.state(), but gives us
         # trustworthy feedback while tuning the physical drivetrain.
-        speed_A = direction * motorA.speed(window=20)
-        speed_B = direction * motorB.speed(window=20)
+        speed_A = direction_A * motorA.speed(window=20)
+        speed_B = direction_B * motorB.speed(window=20)
         avg_speed = (speed_A + speed_B) / 2
 
         if phase == "SETTLE":
@@ -575,8 +608,8 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
 
         
 
-        motorA.dc(direction * clamp(duty_A, -100, 100))
-        motorB.dc(direction * clamp(duty_B, -100, 100))
+        motorA.dc(direction_A * clamp(duty_A, -100, 100))
+        motorB.dc(direction_B * clamp(duty_B, -100, 100))
 
         if now - last_print >= 50:
             logger.log_print(
@@ -601,3 +634,5 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
     wait(beep_time)
 
 
+def turn_degrees(turn_angle, default_min_speed=160, default_max_speed=1000, default_ramp_dist=80):
+    move_distance(target_distance=0, default_min_speed=default_min_speed, default_max_speed=default_max_speed, default_ramp_dist=default_ramp_dist, turn_angle=turn_angle):

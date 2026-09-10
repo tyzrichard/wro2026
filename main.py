@@ -57,7 +57,7 @@ if ev3.battery.voltage() >= 7000:
         
         for i in range(10):
             wait_for_new_touch_press()
-            nacc.move_distance(100)
+            nacc.move_distance(200)
         # wait_for_new_touch_press()
         ev3.speaker.beep(1000, 700)
         wait_for_new_touch_press()

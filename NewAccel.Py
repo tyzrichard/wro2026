@@ -29,7 +29,7 @@ def checkColor(r, g, b, color, buffer=25):
 def clamp(value, lo, hi):
     return max(lo, min(hi, value))
 
-def dist_planning(target_distance, default_max_speed, default_ramp_dist, decel_scale=1):
+def dist_planning(target_distance, default_max_speed, default_ramp_dist, decel_scale=1.15):
     """
         Returns the distances needed for the ramps (both are same), cruise and max speed achievable.
         If the distance is too short cruising is removed and the ramps scaled down proportionally.
@@ -122,7 +122,7 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
     kS = 28.0       # friction feedforward - leave at 0 for now
     #kV = 0.10      # speed feedforward
     kV_A = 0.100
-    kV_B = 0.098
+    kV_B = 0.0965
     #kA = 0.003 :SOB: it was nice while you lasted      # acceleration feedforward - tune later
     kA_accel = 0.004
     kA_decel = 0.003
@@ -130,6 +130,8 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
     MAX_TARGET_ACCEL = 3000
 
     MAX_CRUISE_SPEED = 620
+
+    RAMP_DOWN_KS_MIN = 18.0
 
     # PID feedback
     kp_speed = 0.05
@@ -141,29 +143,27 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
     I_ACTIVE_ERROR = 100
 
     # ---------- FINAL POSITION SETTLING ----------
-
-    SETTLE_ZONE = 8.0        # mm from destination to enter position control
+    DISTANCE_SCALE = 1.03
+    SETTLE_ZONE = 12.0        # mm from destination to enter position control
     SETTLE_TOL = 1.0       # acceptable final position error, mm
 
     SETTLE_KP = 20.0          # target deg/s per mm of position error
-    SETTLE_MAX_SPEED = 160    # maximum correction speed, deg/s
+    SETTLE_MAX_SPEED = 60    # maximum correction speed, deg/s
     SETTLE_MIN_SPEED = 50
 
-    SETTLE_KS = 36.0
+    SETTLE_KS = 40.0
 
     SETTLE_STABLE_CYCLES = 3  # must stay inside tolerance this many loops
 
 
     # ---------- WHEEL SYNC CONTROLLER ----------
-    kp_sync = 0.8
+    kp_sync = 0.9
     kd_sync = 0.01
 
     MAX_SYNC_CORRECTION = 6.0
 
     deriv_alpha = 0.5
-
-
-
+    target_distance *= DISTANCE_SCALE
     
     ramp_dist, decel_dist, cruise_dist, max_speed = dist_planning(abs(target_distance), default_max_speed, default_ramp_dist)
  
@@ -343,19 +343,6 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
                     max_speed
                 )
 
-        # ---- target acceleration ----
-        # This currently doesn't affect duty because kA = 0.
-        # We're calculating it now so the controller is ready for kA later.
-        target_accel = (target_speed - prev_target_speed) / dt_s
-
-        target_accel = clamp(
-            target_accel,
-            -MAX_TARGET_ACCEL,
-            MAX_TARGET_ACCEL
-)
-        
-
-        prev_target_speed = target_speed
  
         # Faster model-estimated speed for custom control loops
         # _, estimated_speed_A, _, _ = motorA.model.state()
@@ -369,6 +356,28 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
         # trustworthy feedback while tuning the physical drivetrain.
         speed_A = direction * motorA.speed(window=20)
         speed_B = direction * motorB.speed(window=20)
+        avg_speed = (speed_A + speed_B) / 2
+
+        if phase == "SETTLE":
+
+            if target_speed < 0 and avg_speed > 50:
+                target_speed = 0
+
+            elif target_speed > 0 and avg_speed < -50:
+                target_speed = 0
+
+        # ---- target acceleration ----
+        # This currently doesn't affect duty because kA = 0.
+        # We're calculating it now so the controller is ready for kA later.
+        target_accel = (target_speed - prev_target_speed) / dt_s
+
+        target_accel = clamp(
+            target_accel,
+            -MAX_TARGET_ACCEL,
+            MAX_TARGET_ACCEL
+        )
+    
+        prev_target_speed = target_speed
 
         err_A = target_speed - speed_A
         err_B = target_speed - speed_B
@@ -473,42 +482,44 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
             # duty to overcome drivetrain friction.
                     
             if target_speed > 0:
-                friction_ff_A = SETTLE_KS
-                friction_ff_B = SETTLE_KS
+
+                if 0 <= avg_speed < target_speed:
+                    friction_ff = SETTLE_KS
+                else:
+                    friction_ff = 0
 
             elif target_speed < 0:
-                friction_ff_A = -SETTLE_KS
-                friction_ff_B = -SETTLE_KS
+
+                if target_speed < avg_speed <= 0:
+                    friction_ff = -SETTLE_KS
+                else:
+                    friction_ff = 0
 
             else:
-                friction_ff_A = 0
-                friction_ff_B = 0
+                friction_ff = 0
 
         elif phase == "RAMP_DOWN":
+            current_kS = max(
+                kS * progress,
+                RAMP_DOWN_KS_MIN
+            )
 
-            # During normal deceleration, only compensate friction
-            # if a motor is going slower than requested.
             if target_speed > 0:
-                friction_ff_A = kS if speed_A < target_speed else 0
-                friction_ff_B = kS if speed_B < target_speed else 0
+                friction_ff = current_kS
 
             elif target_speed < 0:
-                friction_ff_A = -kS if speed_A > target_speed else 0
-                friction_ff_B = -kS if speed_B > target_speed else 0
+                friction_ff = -current_kS
 
             else:
-                friction_ff_A = 0
-                friction_ff_B = 0
+                friction_ff = 0
 
         else:
-
             # Normal ramp-up / cruise
-            friction_ff_A = kS
-            friction_ff_B = kS
+            friction_ff = kS
 
 
-        feedforward_A = base_ff_A + friction_ff_A
-        feedforward_B = base_ff_B + friction_ff_B
+        feedforward_A = base_ff_A + friction_ff
+        feedforward_B = base_ff_B + friction_ff
         # ---- feedforward + PID feedback ----
 
         duty_A = (

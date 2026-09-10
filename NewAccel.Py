@@ -6,6 +6,7 @@ from pybricks.tools import wait, StopWatch
 from pybricks.robotics import DriveBase
 from LineTracer import PDController
 import math
+import Logger as logger
 
 ev3 = EV3Brick()
 
@@ -119,7 +120,9 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
 
     # Feedforward
     kS = 28.0       # friction feedforward - leave at 0 for now
-    kV = 0.10      # speed feedforward
+    #kV = 0.10      # speed feedforward
+    kV_A = 0.100
+    kV_B = 0.098
     #kA = 0.003 :SOB: it was nice while you lasted      # acceleration feedforward - tune later
     kA_accel = 0.004
     kA_decel = 0.003
@@ -208,7 +211,7 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
     settled_cycles = 0
 
     last_print = 0
-    print("moving")
+    logger.log_print("moving")
     while True: # avg_dist < target_distance this is to let the robot correct itself if it overshoots the target distance
         now = timer.time()
         dt = max(now - prev_time, 1)  # ms; guard against divide-by-zero on a fast tick
@@ -231,7 +234,7 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
             and first_move_A is not None
             and first_move_B is not None
         ):
-            print(
+            logger.log_print(
                 "START A:", first_move_A,
                 "B:", first_move_B,
                 "difference:", first_move_A - first_move_B,
@@ -450,8 +453,13 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
         else:
             accel_ff = kA_decel * target_accel
 
-        base_ff = (
-            kV * target_speed
+        base_ff_A = (
+            kV_A * target_speed
+            + accel_ff
+        )
+
+        base_ff_B = (
+            kV_B * target_speed
             + accel_ff
         )
 
@@ -499,8 +507,8 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
             friction_ff_B = kS
 
 
-        feedforward_A = base_ff + friction_ff_A
-        feedforward_B = base_ff + friction_ff_B
+        feedforward_A = base_ff_A + friction_ff_A
+        feedforward_B = base_ff_B + friction_ff_B
         # ---- feedforward + PID feedback ----
 
         duty_A = (
@@ -560,7 +568,7 @@ def move_distance(target_distance, default_min_speed=160, default_max_speed=1000
         motorB.dc(direction * clamp(duty_B, -100, 100))
 
         if now - last_print >= 50:
-            print(
+            logger.log_print(
                 "phase:", phase,
                 "error:", round(position_error, 2),
                 "target:", round(target_speed),

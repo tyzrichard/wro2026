@@ -7,8 +7,6 @@ import Acceleration as acceleration
 import NewAccel as nacc
 import MiscSetup as misc
 import SlapSorter as slap
-import Logger as logger
-
 
 
 ev3 = EV3Brick()
@@ -28,6 +26,14 @@ print(ev3.battery.voltage())
 
 acc = acceleration.AccelerationController()
 
+# ---------- MOTOR CALIBRATION SETTINGS ----------
+
+DUTY_LEVELS = [50, 60, 70, 80]
+RUNS_PER_DUTY = 3
+
+SETTLE_MS = 500
+SAMPLE_MS = 1000
+
 def touch_button_pressed():
     """Return True while the pushbutton is pressed."""
     return pushButton.pressed() 
@@ -42,9 +48,106 @@ def wait_for_new_touch_press():
 
     ev3.speaker.beep()
     print("Touch button on Port 4 pressed")
-    
+
+def run_test(duty, run_number, results):
+    """
+    Applies the same raw duty to both drive motors,
+    allows them to settle, then measures encoder speed
+    over SAMPLE_MS.
+    """
+
+    print(
+        "Ready:",
+        "duty", duty,
+        "run", run_number,
+        "- press TOUCH BUTTON"
+    )
+
+    # Audible indication that the robot is waiting.
+    ev3.speaker.beep()
+
+    wait_for_new_touch_press()
+
+    print("Running...")
+
+    # Apply exactly the same raw duty to both motors.
+    motorA.dc(duty)
+    motorB.dc(duty)
+
+    # Allow speed to settle before measurement.
+    wait(SETTLE_MS)
+
+    start_A = motorA.angle()
+    start_B = motorB.angle()
+
+    # Measure over a relatively long interval to reduce
+    # encoder quantisation/noise.
+    wait(SAMPLE_MS)
+
+    end_A = motorA.angle()
+    end_B = motorB.angle()
+
+    motorA.brake()
+    motorB.brake()
+
+    speed_A = (end_A - start_A) * 1000.0 / SAMPLE_MS
+    speed_B = (end_B - start_B) * 1000.0 / SAMPLE_MS
+
+    if speed_A != 0:
+        ratio = speed_B / speed_A
+    else:
+        ratio = 0
+
+    line = (
+        "CAL duty: {} run: {} A: {:.1f} B: {:.1f} B/A: {:.4f}\n"
+        .format(
+            duty,
+            run_number,
+            speed_A,
+            speed_B,
+            ratio
+        )
+    )
+
+    print(line.strip())
+
+    results.append(
+        (
+            duty,
+            run_number,
+            speed_A,
+            speed_B,
+            ev3.battery.voltage()
+        )
+    )
+    # Two beeps = test completed.
+    ev3.speaker.beep()
+    wait(100)
+    ev3.speaker.beep()
+
+    wait(500)
+
+def print_calibration(results):
+
+    print("----- MOTOR CALIBRATION -----")
+
+    for duty, run_number, speed_A, speed_B, battery in results:
+
+        ratio = speed_B / speed_A if speed_A else 0
+
+        print(
+            "CAL duty:", duty,
+            "run:", run_number,
+            "A:", round(speed_A, 1),
+            "B:", round(speed_B, 1),
+            "B/A:", round(ratio, 4),
+            "battery:", battery
+        )
+
+    print("-----------------------------")
 
 if ev3.battery.voltage() >= 7000:
+    results = []
     try:
         # Testing: Print White Values of all 3 color sensors
         # while True:
@@ -55,15 +158,53 @@ if ev3.battery.voltage() >= 7000:
         #     slap.move("left_block")
         #     slap.slap_slapper()
         
-        for i in range(10):
+
+        print("Motor calibration")
+        print("Results will be saved to:", results)
+        print("Press the touch button on Port 4 before every run.")
+
+
+        try:
+            for duty in DUTY_LEVELS:
+
+                for run_number in range(1, RUNS_PER_DUTY + 1):
+                    run_test(
+                        duty,
+                        run_number,
+                        results
+                    )
+
+                ev3.speaker.beep(800, 400)
+                wait(500)
+
+        finally:
+            motorA.brake()
+            motorB.brake()
+        print("Calibration complete.")
+        print("Saved to:", results)
+
+        ev3.speaker.beep(1000, 700)
+
+        print("Calibration complete.")
+        print("Reconnect laptop, then press touch button.")
+
+        # Distinctive completion beep.
+        ev3.speaker.beep(1000, 700)
+
+        # Wait here while you reconnect USB.
+        wait_for_new_touch_press()
+
+        # Now dump everything to the terminal.
+        print_calibration(results)
+
+        ev3.speaker.beep(1200, 500)
+
+    
+        
+        while True:
             wait_for_new_touch_press()
             nacc.move_distance(100)
         # wait_for_new_touch_press()
-        ev3.speaker.beep(1000, 700)
-        wait_for_new_touch_press()
-        print(logger.dump_log())
-
-        #while True:
 
         # for i in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]:
         #     motorA.dc(i)
